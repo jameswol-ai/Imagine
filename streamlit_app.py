@@ -15,6 +15,28 @@ import plotly.graph_objects as go
 import plotly.express as px
 import os, sys, traceback
 
+from forex_fx import (
+    initialize_fx_rates,
+    get_fx_data,
+    get_all_countries,
+    convert_currency,
+    compute_forex_boq,
+    simulate_random_fx,
+    set_rate,
+    reset_rates_to_baseline,
+    get_baseline_rate,
+)
+
+# ---- TEMP DEBUG ----
+import inspect
+st.write("### Functions available in forex_fx module:")
+import forex_fx
+for name, obj in inspect.getmembers(forex_fx, inspect.isfunction):
+    if not name.startswith("_"):
+        st.write(f"✅ {name}")
+st.stop()
+# ---- END DEBUG ----
+
 # =========================================================
 # INITIALISE CORE SERVICES
 # =========================================================
