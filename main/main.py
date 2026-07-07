@@ -336,3 +336,17 @@ async def generate_concepts(request: GenerateRequest):
         generated_concepts.append(response_obj)
 
     return {"status": "success", "concepts": generated_concepts}
+
+# Add this Pydantic model at the top of main.py
+class PromptInterpretRequest(BaseModel):
+    prompt: str
+
+@app.post("/api/interpret")
+async def interpret_prompt(request: PromptInterpretRequest):
+    # Call your AI parsing function (the one we wrote earlier)
+    ai_config = await parse_architectural_prompt(
+        request.prompt,
+        fallback_domain="Residential", 
+        fallback_type="Modern Villa"
+    )
+    return ai_config
