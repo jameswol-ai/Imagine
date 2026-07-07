@@ -7,7 +7,7 @@ of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+furnished to do so, subject to the following conditions:1
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
@@ -19,3 +19,23 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+---
+
+## 📄 `FOREX.md`
+
+```markdown
+# 💹 Forex Module – Live Rates & Random Volatility Engine
+
+This document explains the technical implementation of the currency system inside **Imagine**.
+
+---
+
+## 📡 Live Rate Fetching
+
+```python
+def get_live_fx_rates():
+    # Calls https://api.exchangerate-api.com/v4/latest/USD
+    # Maps currency codes to East African countries
+    # Returns dict {country: rate} or None on failure
