@@ -1,37 +1,30 @@
-# Imagine
-Architecture Bot with Currency 
+# 🏗️ Imagine — Architectural Intelligence & East African Cost Synthesis
 
-arc_studio/
-├── app.py              # Central Hub
-├── pages/
-│   ├── 01_Sai_Engine.py # Architectural/Structural Lab
-│   └── 02_Random_FX.py  # Forex Intelligence & Hedging
+**RANDOM V3 · Sai Engine · Live FX · Multi‑Agent AI Scoring**
 
+Generate, analyse, and cost multi‑storey building concepts across East Africa with real‑time exchange rates, Eurocode‑based structural checks, and a powerful AI‑powered evolution engine.
 
-tests/
-├── test_architecture.py
-├── test_forex.py
-├── test_app.py
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B?logo=streamlit)](https://streamlit.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-# Imagine – Architectural Intelligence & East African Cost Synthesis
+---
 
-**RANDOM V3** with live FX, generative floor plans, and multi‑agent AI scoring.
+## ✨ What's New in V3
 
-## ✨ New Features
-- 🪙 **Live Forex Rates** – Real‑time KES, UGX, TZS, etc. (fallback to static)
-- 💱 **Currency Converter** – Convert between USD and any East African currency
-- 📉 **FX Volatility Simulator** – Stress‑test project costs with random market swings
-- 🧠 **Sai Engine** – AI‑powered structural analysis & scoring (Architecture, Structure, Sustainability, Cost)
-- 🗺️ **2D/3D Floor Plans** – Interactive Plotly & isometric canvas views
+- 💱 **Live Forex Rates** — Automatic daily rates from [ExchangeRate-API](https://exchangerate-api.com) with static fallback.
+- 🔁 **Interactive Currency Converter** — Convert any amount between USD and all East African currencies directly in the sidebar.
+- 📈 **Random FX Volatility Simulator** — Stress‑test your project budget against stochastic market swings.
+- 🧠 **Sai Structural Engine** — Eurocode 2/3 analysis with real‑time randomness (material strengths, member sizes).
+- 🎯 **4‑Agent AI Scoring** — Architecture, Structure, Sustainability, and Cost agents rate every design.
+- 🗺️ **2D Blueprint & 3D Massing** — Interactive Plotly rooms and isometric canvas views.
+- 📑 **Downloadable Design Reports** — Export a full Markdown report with scores, costs, and floor plans.
+
+---
 
 ## 🚀 Quick Start
-pip install -r requirements.txt  
-streamlit run app.py
 
-## 🧭 How to Use
-1. Select a **target country** and adjust building parameters in the sidebar.
-2. Use the **Forex Converter** to check live exchange rates for any pair.
-3. Click **✨ Generate Concepts** to synthesise 5 design options.
-4. Review the AI scores, floor plans, and cost estimates (in USD & local currency).
-5. Toggle **Simulate FX Volatility** to see how rate fluctuations affect your budget.
-6. Download a full design report as Markdown.
+```bash
+git clone https://github.com/jameswol-ai/Imagine.git
+cd Imagine
+pip install -r requirements.txt
+streamlit run app.py
