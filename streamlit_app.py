@@ -18,7 +18,6 @@ import os, sys, traceback
 # =========================================================
 # INITIALISE CORE SERVICES
 # =========================================================
-initialize_fx_rates()   # fetch live rates / set static fallbacks
 
 MEMORY_FILE = Path("arc_studio_v13.json")
 
