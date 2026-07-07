@@ -675,7 +675,7 @@ with st.sidebar.expander("⚖️ AI Agent Weights", expanded=False):
     weights = (w_arch, w_struct, w_sust, w_cost)
     st.caption(f"Normalised: arch {w_arch:.2f}, struct {w_struct:.2f}, sust {w_sust:.2f}, cost {w_cost:.2f}")
 
-# ── Forex Converter Widget ──────────────────────────
+# ── Forex Converter Widget (FIXED) ──────────────────
 with st.sidebar.expander("💱 Forex Converter", expanded=False):
     currencies = ["USD"] + get_all_countries()
     convert_from = st.selectbox("From", currencies, key="conv_from")
@@ -686,7 +686,8 @@ with st.sidebar.expander("💱 Forex Converter", expanded=False):
 
     sym_from = "$" if convert_from == "USD" else get_fx_data(convert_from)["symbol"]
     sym_to = "$" if convert_to == "USD" else get_fx_data(convert_to)["symbol"]
-    st.metric(f"{sym_from} {amount:,.2f} → {sym_to} {result:,.2f}")
+    # Fixed st.metric call: provide label and value as separate args
+    st.metric(label=f"{sym_from} {amount:,.2f}", value=f"{sym_to} {result:,.2f}")
 
     if convert_from != convert_to:
         rate = get_fx_data(convert_to)["rate"] / (get_fx_data(convert_from)["rate"] if convert_from != "USD" else 1.0)
