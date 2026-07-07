@@ -3,6 +3,13 @@
 # streamlit_app.py  –  UI Layer (v15.1 modular)
 # =========================================================
 
+# test_imports.py
+try:
+    from forex_fx import initialize_fx_rates
+    print("✅ Import successful")
+except Exception as e:
+    print(f"❌ Import failed: {e}")
+
 import streamlit as st
 import json
 import random
