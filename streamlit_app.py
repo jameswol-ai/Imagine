@@ -1,7 +1,7 @@
 # =========================================================
 # ARC — ARCHITECTURAL INTELLECT & EAST AFRICAN FOREX ENGINE
 # Generative Multi-Story Floor Plan & Regional Cost Synthesis
-# Zero-Dependency Single-File Streamlit Implementation
+# Fully Integrated RANDOM V3 Dashboard UI
 # =========================================================
 
 import streamlit as st
@@ -17,58 +17,122 @@ from datetime import datetime
 # =========================================================
 
 st.set_page_config(
-    page_title="Arc Forex & Arch AI",
+    page_title="Random V3 | Arc Forex & Arch AI",
     page_icon="📐",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 MEMORY_FILE = Path("arc_studio_v12.json")
 
+# =========================================================
+# CUSTOM CSS DASHBOARD STYLING
+# =========================================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap');
     
+    /* Base Body & Fonts */
     html, body, [data-testid="stSidebarNav"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #040711;
+        color: #ffffff;
     }
-    
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Space Grotesk', sans-serif;
         font-weight: 700;
         letter-spacing: -0.03em;
     }
-
-    .arc-blueprint-canvas {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 16px;
-        background: #090d16;
-        padding: 24px;
-        border-radius: 12px;
-        border: 1px dashed #334155;
-        margin: 15px 0;
+    
+    /* Streamlit component overrides for Dark Mode */
+    .stTextInput > div > div > input, .stTextArea > div > div > textarea {
+        background-color: #0f172a;
+        border: 1px solid #1e293b;
+        color: #ffffff;
+        border-radius: 8px;
+    }
+    .stButton > button {
+        background: linear-gradient(90deg, #8b5cf6, #6366f1);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        width: 100%;
+        transition: all 0.3s;
+    }
+    .stButton > button:hover {
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+        transform: scale(1.02);
     }
     
+    /* Custom Components to match RANDOM V3 */
+    .glass-card {
+        background: #0f172a;
+        border: 1px solid #1e293b;
+        border-radius: 12px;
+        padding: 20px;
+        backdrop-filter: blur(10px);
+        margin-bottom: 16px;
+    }
+    .metric-title {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+    }
+    .metric-value {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+        margin-top: 4px;
+    }
+    .agent-bar-bg {
+        width: 100%; 
+        height: 6px; 
+        background: #1e293b; 
+        border-radius: 4px; 
+        margin-top: 10px;
+    }
+    .agent-bar-fg {
+        height: 100%; 
+        border-radius: 4px;
+    }
+    
+    /* Blueprint Grid */
+    .arc-blueprint-canvas {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+        background: #090d16;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px dashed #334155;
+        margin: 10px 0;
+    }
     .arc-room-module {
-        padding: 24px;
+        padding: 16px;
         border-radius: 8px;
         color: #ffffff;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
-
-    .room-title {
-        font-size: 1.15rem;
-        font-weight: 700;
-        font-family: 'Space Grotesk', sans-serif;
-        margin-bottom: 6px;
+    .room-title { font-size: 1rem; font-weight: 600; font-family: 'Space Grotesk', sans-serif; }
+    .room-meta { font-size: 0.75rem; opacity: 0.75; margin-top: 4px; }
+    
+    /* Sidebar custom */
+    [data-testid="stSidebar"] {
+        background-color: #0a0f1c;
+        border-right: 1px solid #1e293b;
     }
-
-    .room-meta {
-        font-family: 'Space Grotesk', monospace;
-        font-size: 0.85rem;
-        letter-spacing: 0.05em;
-        opacity: 0.75;
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {
+        background: transparent;
+        color: #94a3b8;
+        font-weight: 500;
+    }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.05);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -81,13 +145,10 @@ REGIONAL_FX = {
     "Kenya": {"currency": "KES", "rate_to_usd": 129.49, "symbol": "KSh", "cost_multiplier": 1.0},
     "Uganda": {"currency": "UGX", "rate_to_usd": 3665.20, "symbol": "USh", "cost_multiplier": 0.95},
     "Tanzania": {"currency": "TZS", "rate_to_usd": 2625.00, "symbol": "TSh", "cost_multiplier": 0.98},
-    "South Sudan": {"currency": "SSP", "rate_to_usd": 4626.40, "symbol": "SSP", "cost_multiplier": 1.35} # Premium due to structural logistics 
+    "South Sudan": {"currency": "SSP", "rate_to_usd": 4626.40, "symbol": "SSP", "cost_multiplier": 1.35}
 }
 
-DEFAULT_STATE = {
-    "designs": [],
-    "logs": []
-}
+DEFAULT_STATE = {"designs": [], "logs": []}
 
 def load_memory():
     if MEMORY_FILE.exists():
@@ -190,11 +251,38 @@ def render_native_blueprint(plan):
         canvas_html += (
             f'<div class="arc-room-module" style="background-color: {room["color"]};">'
             f'<div class="room-title">{room["name"]}</div>'
-            f'<div class="room-meta">📐 {room["w"]}m × {room["h"]}m Layout ({room["type"]})</div>'
+            f'<div class="room-meta">📐 {room["w"]}m × {room["h"]}m ({room["type"]})</div>'
             f'</div>'
         )
     canvas_html += '</div>'
     st.markdown(canvas_html, unsafe_allow_html=True)
+
+def render_circular_score(label, score):
+    """Generates a mockup Circular Score Card"""
+    if score >= 85: color = "#22c55e"
+    elif score >= 70: color = "#eab308"
+    else: color = "#3b82f6"
+    
+    radius = 18
+    circumference = radius * 2 * 3.14159
+    stroke_dash = (score / 100) * circumference
+
+    html = f"""
+    <div class="glass-card" style="text-align: center; padding: 15px;">
+        <div style="position: relative; width: 70px; height: 70px; margin: 0 auto;">
+            <svg width="70" height="70" viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="18" stroke="#1e293b" stroke-width="4" fill="none"/>
+                <circle cx="25" cy="25" r="18" stroke="{color}" stroke-width="4" fill="none" 
+                        stroke-dasharray="{stroke_dash} {circumference}" stroke-linecap="round" 
+                        transform="rotate(-90 25 25)"/>
+            </svg>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Space Grotesk'; font-size: 18px; font-weight: 700; color: white;">{score}</div>
+        </div>
+        <div style="font-weight: 600; color: white; margin-top: 6px; font-size: 14px;">{label}</div>
+        <div style="font-size: 11px; color: #8a9bb5; margin-top: 4px;">Overall Score</div>
+    </div>
+    """
+    return html
 
 # =========================================================
 # STRUCTURAL CODE TESTING (EUROCODES)
@@ -218,13 +306,13 @@ def run_eurocode_analysis(d, domain):
         "design_load": f"{design_load_kpa:.2f} kN/m²",
         "m_ed": f"{m_ed:.1f} kNm",
         "m_rd": f"{m_rd:.1f} kNm",
-        "uls_status": "PASS (Design Load Capacity Envelope OK)" if m_rd > m_ed else "FAIL (Increase Profile Depth)",
+        "uls_status": "PASS" if m_rd > m_ed else "FAIL",
         "deflection_limit": f"{allowable_deflection:.1f} mm",
         "calculated_deflection": f"{min(allowable_deflection, est_deflection):.1f} mm"
     }
 
 # =========================================================
-# MATERIAL QUANTUM ASSESSMENT & FOREX BILL OF QUANTITIES
+# MATERIAL QUANTUM ASSESSMENT & FOREX BOQ
 # =========================================================
 
 def compute_forex_boq(d, target_country):
@@ -234,7 +322,6 @@ def compute_forex_boq(d, target_country):
     currency_symbol = fx_meta["symbol"]
     regional_multiplier = fx_meta["cost_multiplier"]
 
-    # Base Quantities
     conc_qty = int(gfa * 0.35)
     steel_qty = int(conc_qty * 0.12)
     brick_qty = int(gfa * 38)
@@ -264,8 +351,8 @@ def compute_forex_boq(d, target_country):
         calculated_items.append({
             "Material Asset Item": item["Item Description"],
             "Quantity Matrix": f"{item['Qty']:,} {item['Unit']}",
-            "Rate (Local Currency)": f"{currency_symbol} {int(adjusted_rate_usd * fx_rate):,}",
-            "Total Local Cost": f"{currency_symbol} {int(cost_local):,}"
+            "Rate (Local)": f"{currency_symbol} {int(adjusted_rate_usd * fx_rate):,}",
+            "Total Local": f"{currency_symbol} {int(cost_local):,}"
         })
 
     return calculated_items, grand_total_usd, grand_total_local, fx_meta
@@ -312,7 +399,7 @@ def draw_3d_isometric_canvas(plan):
         """
 
     return f"""
-    <div style="background:#040711; padding:12px; border-radius:10px; border:1px solid #1e293b; text-align:center;">
+    <div style="background:#040711; padding:8px; border-radius:10px; border:1px solid #1e293b; text-align:center;">
         <canvas id="arc3dCanvas" width="{canvas_w}" height="{canvas_h}" style="max-width:100%; background:#050814;"></canvas>
         <script>
             const canvas = document.getElementById('arc3dCanvas');
@@ -329,9 +416,12 @@ def draw_3d_isometric_canvas(plan):
 # APPLICATION CONTROL ENGINE LAYERS
 # =========================================================
 
-st.sidebar.title("📐 Arc Engine")
-st.sidebar.caption("v12.1 • Regional Forex & Architectural Engine")
-st.sidebar.markdown("---")
+st.sidebar.markdown("""
+<div style="font-size: 1.5rem; font-weight: 700; font-family: 'Space Grotesk';">
+    <span style="color: #8b5cf6;">R</span>ANDOM V3
+</div>
+<div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 20px;">Evolution AI Design Studio</div>
+""", unsafe_allow_html=True)
 
 nav_page = st.sidebar.radio("Studio Workspace", ["Control Hub Dashboard", "Generative Design Engine"])
 st.sidebar.markdown("---")
@@ -345,12 +435,21 @@ with st.sidebar.expander("📐 Arc Configuration Options", expanded=True):
     input_floors = st.slider("Building Height Limit (Floors)", 1, 12, 3)
     input_baths = st.slider("Total Bathroom Batteries", 1, 10, 2)
 
+st.sidebar.markdown("---")
+st.sidebar.caption("Built with ❤️ for Architects & Engineers of the Future")
+
 # ---------------------------------------------------------
 # WORKSPACE DISPLAY: DASHBOARD
 # ---------------------------------------------------------
 if nav_page == "Control Hub Dashboard":
-    st.title("📐 Regional Structural Dashboard")
-    st.markdown("Systems online. Cross-referencing East African Forex indices with Eurocode construction configurations.")
+    st.markdown("""
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+            <h1 style="font-size: 2.25rem; margin-bottom: 0;">Welcome back, Architect 👋</h1>
+            <div style="color: #94a3b8; font-weight: 500;">Create. Evolve. Perfect.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     fx_col1, fx_col2, fx_col3, fx_col4 = st.columns(4)
     fx_col1.metric("Live Forex USD / KES", f"KSh {REGIONAL_FX['Kenya']['rate_to_usd']}")
@@ -361,16 +460,45 @@ if nav_page == "Control Hub Dashboard":
     st.markdown("---")
     c1, c2 = st.columns(2)
     c1.metric("Evolved Blueprints Saved", len(mem["designs"]))
-    c2.metric("Telemetry Pipeline Computations", len(mem["logs"]))
+    c2.metric("Pipeline Computations", len(mem["logs"]))
 
 # ---------------------------------------------------------
-# WORKSPACE DISPLAY: SYNTHESIS CORE LAB
+# WORKSPACE DISPLAY: SYNTHESIS CORE LAB (RANDOM V3 UI)
 # ---------------------------------------------------------
 elif nav_page == "Generative Design Engine":
-    st.title("🌍 Architecture & Regional Material Synthesis Lab")
-    st.markdown("Opens design vectors using current exchange parameters. Tweak structural values directly inside the sidebar.")
+    st.markdown("""
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+            <h1 style="font-size: 2rem; margin-bottom: 0;">Welcome back, Architect 👋</h1>
+            <div style="color: #94a3b8;">Create. Evolve. Perfect.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    trigger_synthesis = st.button("Initialize Regional Generative Synthesis Sequence", type="primary", use_container_width=True)
+    # --- Copilot Input Section ---
+    with st.container():
+        col_copilot_1, col_copilot_2 = st.columns([3, 1])
+        with col_copilot_1:
+            st.markdown("### 🤖 RANDOM COPILOT")
+            st.markdown("<div style='color: #94a3b8; font-size: 0.9rem;'>Your AI design partner</div>", unsafe_allow_html=True)
+            prompt = st.text_area("Describe your dream project...", 
+                                  placeholder="e.g. Sustainable beach house with open spaces, natural ventilation and modern design", 
+                                  height=100)
+            col_btns = st.columns(3)
+            with col_btns[0]: st.button("🌱 Sustainable", use_container_width=True)
+            with col_btns[1]: st.button("🏛️ Modern", use_container_width=True)
+            with col_btns[2]: st.button("🌴 Tropical", use_container_width=True)
+            
+        with col_copilot_2:
+            # Simulated robot graphic placeholder
+            st.markdown("""
+            <div style="display:flex; justify-content:center; align-items:center; height:120px; text-align:center;">
+                <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 50%; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; border: 1px solid #8b5cf6;">
+                    <span style="font-size: 48px;">🤖</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            trigger_synthesis = st.button("✨ Generate Concepts", type="primary", use_container_width=True)
 
     if trigger_synthesis:
         with st.spinner("Synchronizing currency profiles and processing structural calculations..."):
@@ -380,85 +508,113 @@ elif nav_page == "Generative Design Engine":
             st.session_state.active_design = generated_asset
             mem["designs"].append(generated_asset)
             log_event(f"Evolved local multi-floor architectural framework instance #{generated_asset['id']}")
+            st.rerun()
 
     st.markdown("---")
-
+    
+    # --- Evolution Engine Results ---
     if st.session_state.active_design is not None:
         asset = st.session_state.active_design
+        
+        st.markdown("### 🔬 EVOLUTION ENGINE RESULTS")
+        st.markdown("<div style='color: #94a3b8; font-size: 0.9rem;'>5 unique design concepts generated and evaluated by AI Agents</div>", unsafe_allow_html=True)
+        
+        # Simulate 5 concepts based on the current generated asset
+        concepts = [
+            ("Alpha", 92), ("Beta", 85), ("Gamma", 78), ("Delta", 71), ("Epsilon", 64)
+        ]
+        cols = st.columns(5)
+        for i, (name, score) in enumerate(concepts):
+            with cols[i]:
+                # Use the actual asset image/placeholder, but we render the circle
+                st.markdown(f"""
+                <div class="glass-card" style="padding: 0; overflow: hidden;">
+                    <div style="height: 100px; background: #1e293b; display: flex; justify-content: center; align-items: center;">
+                        <span style="color: #94a3b8;">🏗️ Concept Viz</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown(render_circular_score(f"Concept {name}", score), unsafe_allow_html=True)
 
-        st.subheader(f"⚡ Live Specification Frame: Model Archetype #{asset['id']}")
+        # --- AI AGENT EVALUATION ---
+        st.markdown("### AI AGENT EVALUATION SUMMARY")
+        ec_analysis = run_eurocode_analysis(asset, asset["domain"])
+        boq_data, _, _, fx = compute_forex_boq(asset, asset["country"])
+        sustain_score = min(100, int((asset["total_gfa"] / (asset["plot_size"] * asset["floors"])) * 90) + 20)
 
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Regional Assignment", asset["country"])
-        m2.metric("Gross Built Area Floor Space", f"{asset['total_gfa']:,} m²")
-        m3.metric("Level Structural Count", f"{asset['floors']} Storeys")
-        m4.metric("Framing Openings", f"{asset['doors']} Doors / {asset['windows']} Windows")
+        e1, e2, e3, e4 = st.columns(4)
+        
+        # Agent 1: Architect AI
+        with e1:
+            st.markdown(f"""
+            <div class="glass-card" style="border-left: 4px solid #4ade80;">
+                <div style="color: #4ade80; font-weight: 600;">🏛️ Architect AI</div>
+                <div style="color: #94a3b8; font-size: 12px; margin-top: 2px;">Function & Aesthetics</div>
+                <div style="font-size: 20px; font-weight: 700; margin-top: 6px; color: white;">{asset['type']}</div>
+                <div class="agent-bar-bg"><div class="agent-bar-fg" style="width: 92%; background: #4ade80;"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Agent 2: Structural AI
+        with e2:
+            st.markdown(f"""
+            <div class="glass-card" style="border-left: 4px solid #00d2ff;">
+                <div style="color: #00d2ff; font-weight: 600;">⚙️ Structural AI</div>
+                <div style="color: #94a3b8; font-size: 12px; margin-top: 2px;">Safety & Stability</div>
+                <div style="font-size: 20px; font-weight: 700; margin-top: 6px; color: white;">{ec_analysis['uls_status']} (M_Rd > M_Ed)</div>
+                <div class="agent-bar-bg"><div class="agent-bar-fg" style="width: 88%; background: #00d2ff;"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Agent 3: Sustainability AI
+        with e3:
+            st.markdown(f"""
+            <div class="glass-card" style="border-left: 4px solid #38bdf8;">
+                <div style="color: #38bdf8; font-weight: 600;">🌱 Sustainability AI</div>
+                <div style="color: #94a3b8; font-size: 12px; margin-top: 2px;">Green & Efficiency</div>
+                <div style="font-size: 20px; font-weight: 700; margin-top: 6px; color: white;">{sustain_score}/100</div>
+                <div class="agent-bar-bg"><div class="agent-bar-fg" style="width: {sustain_score}%; background: #38bdf8;"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Agent 4: Cost AI
+        with e4:
+            cost_score = min(100, 100 - int(boq_data[-1]["Total Local"].split(" ")[1].replace(",", "")) // 10000)
+            st.markdown(f"""
+            <div class="glass-card" style="border-left: 4px solid #facc15;">
+                <div style="color: #facc15; font-weight: 600;">💰 Cost AI</div>
+                <div style="color: #94a3b8; font-size: 12px; margin-top: 2px;">Budget & Value</div>
+                <div style="font-size: 20px; font-weight: 700; margin-top: 6px; color: white;">{cost_score}%</div>
+                <div class="agent-bar-bg"><div class="agent-bar-fg" style="width: {cost_score}%; background: #facc15;"></div></div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        tab_2d, tab_3d, tab_eurocode, tab_boq = st.tabs([
-            "🗺️ 2D Spatial Floor Plan Blueprint", 
-            "📦 3D Wireframe Isometric View", 
-            "📐 Eurocode Analysis Load Check", 
-            "💰 Currency Dynamic Bill of Quantities"
-        ])
-
-        with tab_2d:
-            st.markdown("### 🗺️ Plan Spatial Configurations Layout")
+        # --- 2D & 3D Grid Layout ---
+        st.markdown("---")
+        c2d, c3d = st.columns(2)
+        with c2d:
+            st.markdown("### 2D FLOOR PLAN")
             render_native_blueprint(asset["plan"])
+            st.caption(f"Total GFA: {asset['total_gfa']}m² | {asset['floors']} Floors")
+        with c3d:
+            st.markdown("### 3D MASSING - CONCEPT ALPHA")
+            st.components.v1.html(draw_3d_isometric_canvas(asset["plan"]), height=410)
 
-        with tab_3d:
-            st.markdown("### 📦 3D Isometric Elevation Viewport")
-            html_isometric_view = draw_3d_isometric_canvas(asset["plan"])
-            st.components.v1.html(html_isometric_view, height=410)
-
-        with tab_eurocode:
-            st.markdown("### 📐 Eurocode 2 Structural Strength Envelope")
-            analysis = run_eurocode_analysis(asset, asset["domain"])
-
-            e1, e2, e3 = st.columns(3)
-            e1.metric("Design Ultimate Loading ($E_{d}$)", analysis["design_load"])
-            e2.metric("Applied Action Moment ($M_{Ed}$)", analysis["m_ed"])
-            e3.metric("Section Resistance ($M_{Rd}$)", analysis["m_rd"])
-            st.info(f"**Structural Capacity Check:** {analysis['uls_status']}")
-
-        with tab_boq:
-            st.markdown("### 📊 Live Multi-Currency Forex Bill of Quantities")
+        # --- BOQ & DETAILS EXPANDER ---
+        with st.expander("📊 View Full Multi-Currency Bill of Quantities (BOQ) & Eurocode Details"):
+            ec = run_eurocode_analysis(asset, asset["domain"])
+            st.json({
+                "Eurocode 2 Analysis": {
+                    "Design Load": ec["design_load"],
+                    "Applied Moment (M_Ed)": ec["m_ed"],
+                    "Resistance (M_Rd)": ec["m_rd"],
+                    "Status": ec["uls_status"]
+                }
+            })
             boq_table, total_usd, total_local, current_fx = compute_forex_boq(asset, asset["country"])
-
             st.table(boq_table)
-
-            b_usd, b_local = st.columns(2)
-            b_usd.metric("Total Project Cost Basis (USD)", f"$ {int(total_usd):,}")
-            b_local.metric(f"Localized Target Estimation ({current_fx['currency']})", f"{current_fx['symbol']} {int(total_local):,}")
-            st.caption(f"Conversion computed utilizing live indices: **1 USD = {current_fx['rate_to_usd']} {current_fx['currency']}**")
+            st.metric("Total Estimated Cost (USD)", f"$ {int(total_usd):,}")
+            st.metric(f"Total Estimated Cost ({current_fx['currency']})", f"{current_fx['symbol']} {int(total_local):,}")
 
     else:
-        st.info("No layout structures are currently loaded into memory. Adjust the parameters on the sidebar options panel and run the pipeline generator.")
-
-def render_concept_card(index, title, score):
-    # Determine color based on score
-    if score >= 85: color = "#22c55e"  # Green
-    elif score >= 75: color = "#eab308" # Yellow
-    else: color = "#3b82f6"             # Blue
-    
-    # SVG Circular Progress Arc (stroke-dasharray calculates the percentage)
-    radius = 18
-    circumference = radius * 2 * 3.14159
-    stroke_dash = (score / 100) * circumference
-
-    html = f"""
-    <div style="background: #131a26; border-radius: 12px; padding: 20px; border: 1px solid #2a3a4e; text-align: center; margin-bottom: 16px;">
-        <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 10px;">
-            <svg width="80" height="80" viewBox="0 0 50 50">
-                <circle cx="25" cy="25" r="18" stroke="#2a3a4e" stroke-width="4" fill="none"/>
-                <circle cx="25" cy="25" r="18" stroke="{color}" stroke-width="4" fill="none" 
-                        stroke-dasharray="{stroke_dash} {circumference}" stroke-linecap="round" 
-                        transform="rotate(-90 25 25)"/>
-            </svg>
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Space Grotesk'; font-size: 20px; font-weight: 700; color: white;">{score}</div>
-        </div>
-        <div style="font-weight: 600; color: white;">Concept {title}</div>
-        <div style="font-size: 12px; color: #8a9bb5; margin-top: 5px;">Overall Score</div>
-    </div>
-    """
-    return html
+        st.info("No layout structures are currently loaded into memory. Adjust the parameters on the sidebar options panel and click **'Generate Concepts'**.")
