@@ -690,7 +690,16 @@ with st.sidebar.expander("💱 Forex Converter", expanded=False):
     st.metric(label=f"{sym_from} {amount:,.2f}", value=f"{sym_to} {result:,.2f}")
 
     if convert_from != convert_to:
-        rate = get_fx_data(convert_to)["rate"] / (get_fx_data(convert_from)["rate"] if convert_from != "USD" else 1.0)
+        # CORRECTED: safely handle USD rates
+        if convert_from == "USD":
+            from_rate = 1.0
+        else:
+            from_rate = get_fx_data(convert_from)["rate"]
+        if convert_to == "USD":
+            to_rate = 1.0
+        else:
+            to_rate = get_fx_data(convert_to)["rate"]
+        rate = to_rate / from_rate
         st.caption(f"1 {convert_from} = {rate:.4f} {convert_to}")
 
 st.sidebar.markdown("---")
