@@ -1,3 +1,67 @@
+# In main.py
+from llm_engine import parse_architectural_prompt
+
+@app.post("/api/generate", response_model=GenerateResponse)
+async def generate_concepts(request: GenerateRequest):
+    # 1. AI BRAIN: Parse the prompt first
+    ai_config = await parse_architectural_prompt(
+        request.prompt, 
+        fallback_domain=request.domain, 
+        fallback_type=request.type
+    )
+    
+    # 2. Use AI config values, falling back to User sidebar inputs if needed
+    final_domain = ai_config["domain"]
+    final_type = ai_config["type"]
+    final_plot = ai_config["plot_size"]
+    final_floors = ai_config["floors"]
+    final_baths = ai_config["bathrooms"]
+    
+    if request.country not in REGIONAL_FX:
+        raise HTTPException(status_code=400, detail="Country not supported in FX Engine")
+
+    concept_names = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
+    generated_concepts = []
+
+    for i in range(5):
+        # Mutate inputs for every concept
+        mut_plot = final_plot + random.randint(-150, 150)
+        mut_floors = max(1, final_floors + random.randint(-1, 1))
+        mut_rooms = max(1, final_baths + random.randint(-1, 1))
+        
+        raw_asset = generate_spatial_model(
+            final_domain, final_type, 
+            mut_plot, mut_floors, mut_rooms, 
+            request.country, seed=i
+        )
+        
+        ec_result = run_eurocode_analysis(raw_asset, raw_asset['domain'])
+        total_usd, total_local, fx_meta = compute_forex_boq(raw_asset, raw_asset['country'])
+        
+        arch, struct, sust, cost = calculate_ai_scores(raw_asset, ec_result, total_usd, request.prompt)
+        
+        response_obj = ConceptOutput(
+            id=raw_asset["id"],
+            name=concept_names[i],
+            domain=raw_asset["domain"],
+            type=raw_asset["type"],
+            total_gfa=raw_asset["total_gfa"],
+            floors=raw_asset["floors"],
+            country=raw_asset["country"],
+            scores=ConceptScore(
+                architectural=arch, 
+                structural=struct, 
+                sustainability=sust, 
+                cost=cost
+            ),
+            boq_usd_total=int(total_usd),
+            boq_local_total=int(total_local),
+            currency_symbol=fx_meta['symbol']
+        )
+        generated_concepts.append(response_obj)
+
+    return {"status": "success", "concepts": generated_concepts}
+
 # =========================================================
 # ARC API — ARCHITECTURAL INTELLECT & EAST AFRICAN FOREX ENGINE
 # Full FastAPI Implementation for React Frontend Integration
