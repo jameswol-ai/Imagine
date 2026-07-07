@@ -435,22 +435,17 @@ def generate_gantt_chart(asset):
     conc_qty = int(gfa * 0.35)
     start_date = datetime.today()
     tasks = []
-    # Define tasks with typical durations
     tasks.append(("Mobilization", 5))
-    # Substructure duration proportional to concrete quantity
     substructure_days = max(10, int(conc_qty * 0.08))
     tasks.append(("Substructure (Excavation & Foundation)", substructure_days))
-    # Superstructure per floor
     for f in range(floors):
         tasks.append((f"Superstructure Floor {f+1}", 20 + random.randint(-2, 5)))
     tasks.append(("Roofing", 12))
     tasks.append(("External Works & Landscaping", 10))
-    # Finishes proportional to area
     finish_days = max(15, int(gfa * 0.02))
     tasks.append(("Interior Finishes", finish_days))
     tasks.append(("Services & Commissioning", 14))
     tasks.append(("Handover", 3))
-    # Build DataFrame with start/finish
     df = pd.DataFrame(tasks, columns=["Task", "Duration"])
     end_dates = []
     current_end = start_date
@@ -532,7 +527,7 @@ def plot_real_fx_with_indicators(df):
 
 MEMORY_FILE = Path("arc_studio_v13.json")
 
-# CSS (unchanged, same as before)
+# CSS (unchanged)
 st.set_page_config(
     page_title="RANDOM V3 | Sai Engine & FX",
     page_icon="📐",
@@ -745,7 +740,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Memory functions (unchanged)
+# Memory functions
 DEFAULT_STATE = {"designs": [], "concepts": [], "logs": []}
 def load_memory():
     if MEMORY_FILE.exists():
@@ -885,7 +880,6 @@ st.sidebar.markdown(f"""
 <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 24px;">{t('sidebar_subtitle')}</div>
 """, unsafe_allow_html=True)
 
-# Language selector
 lang_option = st.sidebar.selectbox("🌐 Language / Lugha", ["English", "Kiswahili"], index=0)
 st.session_state.lang = "en" if lang_option == "English" else "sw"
 
@@ -947,7 +941,7 @@ else:
     st.sidebar.caption(t("no_designs"))
 
 # =========================================================
-# DASHBOARD VIEW (updated with Real FX tab)
+# DASHBOARD VIEW (with Real FX tab and unique keys)
 # =========================================================
 if nav_page == t("dashboard"):
     st.markdown(f"""
@@ -973,19 +967,17 @@ if nav_page == t("dashboard"):
     with st.expander(t("kes_history"), expanded=False):
         tab1, tab2 = st.tabs([t("real_data"), t("simulated")])
         with tab1:
-            # Real historical data with indicators
             end_date = datetime.today()
             start_date = end_date - timedelta(days=60)
             df_real = fetch_historical_fx_kes(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
             if df_real is not None and not df_real.empty:
                 fig_real = plot_real_fx_with_indicators(df_real)
                 if fig_real:
-                    st.plotly_chart(fig_real, use_container_width=True)
+                    st.plotly_chart(fig_real, use_container_width=True, key="real_fx_indicators")
                 else:
                     st.warning("Could not plot real data.")
             else:
                 st.warning("Unable to fetch real KES/USD data. Showing simulated instead.")
-                # fallback to simulated
                 start_rate = get_fx_data("Kenya")["rate"]
                 np.random.seed(42)
                 random_steps = np.random.normal(0, 0.008, 60)
@@ -993,9 +985,9 @@ if nav_page == t("dashboard"):
                 for step in random_steps:
                     rates.append(rates[-1] * (1 + step))
                 fx_df = pd.DataFrame({"Day": range(len(rates)), "KES/USD": rates})
-                fig = px.line(fx_df, x="Day", y="KES/USD", title=t("simulated"))
-                fig.update_traces(line_color="#38bdf8")
-                st.plotly_chart(fig, use_container_width=True)
+                fig_sim_fallback = px.line(fx_df, x="Day", y="KES/USD", title=t("simulated"))
+                fig_sim_fallback.update_traces(line_color="#38bdf8")
+                st.plotly_chart(fig_sim_fallback, use_container_width=True, key="sim_fallback_chart")
         with tab2:
             start_rate = get_fx_data("Kenya")["rate"]
             np.random.seed(42)
@@ -1004,9 +996,9 @@ if nav_page == t("dashboard"):
             for step in random_steps:
                 rates.append(rates[-1] * (1 + step))
             fx_df = pd.DataFrame({"Day": range(len(rates)), "KES/USD": rates})
-            fig = px.line(fx_df, x="Day", y="KES/USD", title=t("simulated"))
-            fig.update_traces(line_color="#38bdf8")
-            st.plotly_chart(fig, use_container_width=True)
+            fig_sim = px.line(fx_df, x="Day", y="KES/USD", title=t("simulated"))
+            fig_sim.update_traces(line_color="#38bdf8")
+            st.plotly_chart(fig_sim, use_container_width=True, key="sim_main_chart")
 
     st.markdown("---")
     c1, c2, c3 = st.columns(3)
@@ -1126,7 +1118,7 @@ elif nav_page == t("generative"):
                 font=dict(color='#94a3b8'), showlegend=True,
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
-            st.plotly_chart(fig_radar, use_container_width=True)
+            st.plotly_chart(fig_radar, use_container_width=True, key="radar_chart")
 
         # Top recommendation
         st.markdown("---")
@@ -1215,12 +1207,12 @@ elif nav_page == t("generative"):
                 st.components.v1.html(render_isometric_html(asset["plan"]), height=450)
             else:
                 fig3d = render_plotly_3d_rooms(asset["plan"])
-                st.plotly_chart(fig3d, use_container_width=True)
+                st.plotly_chart(fig3d, use_container_width=True, key="3d_rooms_chart")
 
         # Gantt Chart expander (new)
         with st.expander(t("gantt_expander"), expanded=False):
             fig_gantt = generate_gantt_chart(asset)
-            st.plotly_chart(fig_gantt, use_container_width=True)
+            st.plotly_chart(fig_gantt, use_container_width=True, key="gantt_chart")
 
         # Export report
         st.markdown("---")
