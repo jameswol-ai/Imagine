@@ -18,6 +18,68 @@ import plotly.express as px
 import pandas as pd
 import io
 
+import requests
+
+# Static fallback (your original data)
+STATIC_FX_RATES = {
+    "Kenya":       129.49,
+    "Uganda":      3665.20,
+    "Tanzania":    2625.00,
+    "South Sudan": 4626.40,
+    "Rwanda":      1330.00,
+    "Ethiopia":    125.00
+}
+
+def get_live_fx_rates():
+    """
+    Try to fetch live rates from ExchangeRate-API (free tier).
+    Returns a dict like {'Kenya': 129.5, ...} or None on failure.
+    """
+    try:
+        # You can sign up for a free API key at https://www.exchangerate-api.com/
+        # For demo, we use the demo endpoint (limited but works without key)
+        response = requests.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
+        data = response.json()
+        rates = data.get("rates", {})
+        live = {}
+        # Map country currency codes to the API's keys
+        currency_map = {
+            "Kenya": "KES",
+            "Uganda": "UGX",
+            "Tanzania": "TZS",
+            "South Sudan": "SSP",
+            "Rwanda": "RWF",
+            "Ethiopia": "ETB"
+        }
+        for country, code in currency_map.items():
+            if code in rates:
+                live[country] = rates[code]
+        return live if live else None
+    except Exception:
+        return None
+
+def build_regional_fx():
+    live_rates = get_live_fx_rates()
+    regional_fx = {}
+    base_data = {
+        "Kenya":       {"currency": "KES", "symbol": "KSh", "multiplier": 1.00, "region": "East Africa"},
+        "Uganda":      {"currency": "UGX", "symbol": "USh", "multiplier": 0.95, "region": "East Africa"},
+        "Tanzania":    {"currency": "TZS", "symbol": "TSh", "multiplier": 0.98, "region": "East Africa"},
+        "South Sudan": {"currency": "SSP", "symbol": "SSP", "multiplier": 1.35, "region": "East Africa"},
+        "Rwanda":      {"currency": "RWF", "symbol": "FRw", "multiplier": 0.85, "region": "Central Africa"},
+        "Ethiopia":    {"currency": "ETB", "symbol": "Br",  "multiplier": 0.80, "region": "Horn of Africa"}
+    }
+    for country, info in base_data.items():
+        if live_rates and country in live_rates:
+            info["rate"] = live_rates[country]
+        else:
+            info["rate"] = STATIC_FX_RATES.get(country, 1.0)  # fallback
+        regional_fx[country] = info
+    return regional_fx
+
+# Replace your hardcoded REGIONAL_FX with this dynamic one
+REGIONAL_FX = build_regional_fx()
+
 # =========================================================
 # CONFIG & GLOBAL HUD COSMETICS
 # =========================================================
