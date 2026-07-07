@@ -15,6 +15,10 @@ import plotly.graph_objects as go
 import plotly.express as px
 import os, sys, traceback
 
+from forex_fx import initialize_fx_rates
+st.write("initialize_fx_rates is", initialize_fx_rates)   # should print a function
+st.stop()
+
 # =========================================================
 # INITIALISE CORE SERVICES
 # =========================================================
