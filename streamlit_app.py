@@ -4,11 +4,8 @@
 # =========================================================
 
 # test_imports.py
-try:
-    from forex_fx import initialize_fx_rates
-    print("✅ Import successful")
-except Exception as e:
-    print(f"❌ Import failed: {e}")
+from forex_fx import initialize_fx_rates
+st.write("Imported successfully")   # remove later
 
 import streamlit as st
 import json
