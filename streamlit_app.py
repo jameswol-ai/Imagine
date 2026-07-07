@@ -13,6 +13,26 @@ from pathlib import Path
 from datetime import datetime
 import requests  # For live FX
 import numpy as np
+from 01_Sai_Engine import ARCH_DOMAINS, generate_spatial_model, run_eurocode_analysis, calculate_ai_scores
+from 02_Forex_FX import (
+    initialize_fx_rates,
+    get_fx_data,
+    get_all_countries,
+    convert_currency,
+    compute_forex_boq,
+    simulate_random_fx,
+    set_rate,
+    reset_rates_to_baseline,
+)
+
+# Initialize FX once
+initialize_fx_rates()
+
+# Then in the UI:
+#   - get_all_countries() → for the country selectbox
+#   - convert_currency() → for the Forex Converter widget
+#   - compute_forex_boq() → for cost estimation
+#   - simulate_random_fx() and set_rate() → for volatility simulation
 
 # For charts and 3D
 import plotly.graph_objects as go
