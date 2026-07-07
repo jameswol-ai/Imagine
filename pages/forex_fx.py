@@ -1,4 +1,4 @@
-# forex_fx.py (minimal version)
+# forex_fx.py
 
 import random
 import requests
@@ -27,18 +27,17 @@ _CURRENCY_INFO = {}
 
 def _fetch_live_rates():
     try:
-        response = requests.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
-        data = response.json()
-        rates = data.get("rates", {})
-        currency_map = {
+        resp = requests.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
+        data = resp.json().get("rates", {})
+        mapping = {
             "Kenya": "KES", "Uganda": "UGX", "Tanzania": "TZS",
             "South Sudan": "SSP", "Rwanda": "RWF", "Ethiopia": "ETB",
         }
         live = {}
-        for country, code in currency_map.items():
-            if code in rates:
-                live[country] = rates[code]
-        return live if live else None
+        for country, code in mapping.items():
+            if code in data:
+                live[country] = data[code]
+        return live or None
     except Exception:
         return None
 
@@ -72,14 +71,13 @@ def convert_currency(amount, from_curr, to_curr):
         usd = amount / _CURRENT_RATES[from_curr]
     if to_curr == "USD":
         return usd
-    else:
-        return usd * _CURRENT_RATES[to_curr]
+    return usd * _CURRENT_RATES[to_curr]
 
 def compute_forex_boq(d, target_country):
     gfa = d["total_gfa"]
-    fx_data = get_fx_data(target_country)
-    rate = fx_data["rate"]
-    mult = fx_data["multiplier"]
+    fx = get_fx_data(target_country)
+    rate = fx["rate"]
+    mult = fx["multiplier"]
     conc = int(gfa * 0.35)
     steel = int(conc * 0.12)
     brick = int(gfa * 38)
@@ -94,10 +92,10 @@ def compute_forex_boq(d, target_country):
         ("Alu Windows", d["windows"], 450),
     ]
     usd = 0
-    for _, qty, unit_rate in items:
-        usd += qty * unit_rate * mult
+    for _, qty, rate_u in items:
+        usd += qty * rate_u * mult
     local = usd * rate
-    return usd, local, fx_data
+    return usd, local, fx
 
 def simulate_random_fx(base_rate, volatility=0.02):
     return base_rate * (1 + random.gauss(0, volatility))
