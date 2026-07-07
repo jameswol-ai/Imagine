@@ -21,7 +21,7 @@ from sai_engine import (
     run_eurocode_analysis,
     calculate_ai_scores,
 )
-from forex_fx import (
+from random_fx import (               # <-- changed from forex_fx
     initialize_fx_rates,
     get_fx_data,
     get_all_countries,
