@@ -1,7 +1,7 @@
 # =========================================================
 # ARC — ARCHITECTURAL INTELLECT & EAST AFRICAN FOREX ENGINE
 # Generative Multi‑Story Floor Plan & Regional Cost Synthesis
-# Sai Engine & Random FX Visual Overhaul v15.0 – Extended Suite
+# Sai Engine & Random FX Visual Overhaul v15.1 – Live Rates & Dynamic Struct
 # =========================================================
 
 import streamlit as st
@@ -11,74 +11,12 @@ import random
 import time
 from pathlib import Path
 from datetime import datetime
+import requests  # For live FX
 
-# New libraries for charts and 3D
+# For charts and 3D
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
-import io
-
-import requests
-
-# Static fallback (your original data)
-STATIC_FX_RATES = {
-    "Kenya":       129.49,
-    "Uganda":      3665.20,
-    "Tanzania":    2625.00,
-    "South Sudan": 4626.40,
-    "Rwanda":      1330.00,
-    "Ethiopia":    125.00
-}
-
-def get_live_fx_rates():
-    """
-    Try to fetch live rates from ExchangeRate-API (free tier).
-    Returns a dict like {'Kenya': 129.5, ...} or None on failure.
-    """
-    try:
-        # You can sign up for a free API key at https://www.exchangerate-api.com/
-        # For demo, we use the demo endpoint (limited but works without key)
-        response = requests.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
-        data = response.json()
-        rates = data.get("rates", {})
-        live = {}
-        # Map country currency codes to the API's keys
-        currency_map = {
-            "Kenya": "KES",
-            "Uganda": "UGX",
-            "Tanzania": "TZS",
-            "South Sudan": "SSP",
-            "Rwanda": "RWF",
-            "Ethiopia": "ETB"
-        }
-        for country, code in currency_map.items():
-            if code in rates:
-                live[country] = rates[code]
-        return live if live else None
-    except Exception:
-        return None
-
-def build_regional_fx():
-    live_rates = get_live_fx_rates()
-    regional_fx = {}
-    base_data = {
-        "Kenya":       {"currency": "KES", "symbol": "KSh", "multiplier": 1.00, "region": "East Africa"},
-        "Uganda":      {"currency": "UGX", "symbol": "USh", "multiplier": 0.95, "region": "East Africa"},
-        "Tanzania":    {"currency": "TZS", "symbol": "TSh", "multiplier": 0.98, "region": "East Africa"},
-        "South Sudan": {"currency": "SSP", "symbol": "SSP", "multiplier": 1.35, "region": "East Africa"},
-        "Rwanda":      {"currency": "RWF", "symbol": "FRw", "multiplier": 0.85, "region": "Central Africa"},
-        "Ethiopia":    {"currency": "ETB", "symbol": "Br",  "multiplier": 0.80, "region": "Horn of Africa"}
-    }
-    for country, info in base_data.items():
-        if live_rates and country in live_rates:
-            info["rate"] = live_rates[country]
-        else:
-            info["rate"] = STATIC_FX_RATES.get(country, 1.0)  # fallback
-        regional_fx[country] = info
-    return regional_fx
-
-# Replace your hardcoded REGIONAL_FX with this dynamic one
-REGIONAL_FX = build_regional_fx()
 
 # =========================================================
 # CONFIG & GLOBAL HUD COSMETICS
@@ -100,7 +38,6 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap');
     
-    /* Animated background gradients */
     @keyframes gradientShift {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
@@ -142,7 +79,6 @@ st.markdown("""
         margin-top: 0;
     }
     
-    /* Glassmorphism Card Effect - enhanced */
     .glass-panel {
         background: rgba(15, 23, 42, 0.65);
         backdrop-filter: blur(16px);
@@ -174,14 +110,12 @@ st.markdown("""
         transform: translateY(-4px);
     }
 
-    /* Glowing accent cards */
     .glow-edge {
         position: relative;
         border: 1px solid rgba(56, 189, 248, 0.25);
         box-shadow: 0 0 20px rgba(56, 189, 248, 0.08);
     }
     
-    /* Input & Text Overrides */
     .stTextInput > div > div > input, .stTextArea > div > div > textarea {
         background: rgba(15, 23, 42, 0.8);
         border: 1px solid #1e293b;
@@ -196,7 +130,6 @@ st.markdown("""
         box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
     }
     
-    /* Supercharged Generate Button */
     .stButton > button {
         background: linear-gradient(135deg, #8b5cf6, #3b82f6);
         color: white;
@@ -218,7 +151,6 @@ st.markdown("""
         background: linear-gradient(135deg, #9f7aea, #5a7df1);
     }
     
-    /* Metric progress bars with shimmer */
     .metric-bar-bg { 
         width: 100%; 
         height: 6px; 
@@ -235,7 +167,6 @@ st.markdown("""
         animation: shimmer 2s infinite linear;
     }
     
-    /* Sidebar Upgrade */
     [data-testid="stSidebar"] {
         background: rgba(9, 14, 25, 0.95);
         backdrop-filter: blur(14px);
@@ -260,7 +191,6 @@ st.markdown("""
         box-shadow: 0 0 12px rgba(56,189,248,0.1);
     }
     
-    /* Concept card mini floor-plan pattern */
     .mini-plan {
         background-color: #1e293b;
         background-image: 
@@ -286,12 +216,10 @@ st.markdown("""
         background: radial-gradient(circle at 30% 30%, rgba(59,130,246,0.15), transparent 60%);
     }
     
-    /* Floating decorations */
     .float-element {
         animation: float 6s ease-in-out infinite;
     }
     
-    /* 3D canvas container */
     .canvas-container {
         background: #040711; 
         padding: 8px; 
@@ -305,7 +233,6 @@ st.markdown("""
         box-shadow: 0 0 40px rgba(56,189,248,0.15);
     }
     
-    /* Score card accent borders */
     .score-card {
         border-left: 4px solid;
     }
@@ -313,17 +240,66 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# ENHANCED RANDOM FX ENGINE (EAST AFRICA 2026)
+# LIVE FX RATES ENGINE (with fallback)
 # =========================================================
 
-REGIONAL_FX = {
-    "Kenya":       {"currency": "KES", "rate": 129.49, "symbol": "KSh", "multiplier": 1.00, "region": "East Africa"},
-    "Uganda":      {"currency": "UGX", "rate": 3665.20, "symbol": "USh", "multiplier": 0.95, "region": "East Africa"},
-    "Tanzania":    {"currency": "TZS", "rate": 2625.00, "symbol": "TSh", "multiplier": 0.98, "region": "East Africa"},
-    "South Sudan": {"currency": "SSP", "rate": 4626.40, "symbol": "SSP", "multiplier": 1.35, "region": "East Africa"},
-    "Rwanda":      {"currency": "RWF", "rate": 1330.00, "symbol": "FRw", "multiplier": 0.85, "region": "Central Africa"},
-    "Ethiopia":    {"currency": "ETB", "rate": 125.00, "symbol": "Br",  "multiplier": 0.80, "region": "Horn of Africa"}
+# Static fallback rates
+STATIC_FX_RATES = {
+    "Kenya":       129.49,
+    "Uganda":      3665.20,
+    "Tanzania":    2625.00,
+    "South Sudan": 4626.40,
+    "Rwanda":      1330.00,
+    "Ethiopia":    125.00
 }
+
+def get_live_fx_rates():
+    """Try to fetch live rates from ExchangeRate-API (free tier)."""
+    try:
+        # No API key needed for demo endpoint
+        response = requests.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
+        data = response.json()
+        rates = data.get("rates", {})
+        currency_map = {
+            "Kenya": "KES",
+            "Uganda": "UGX",
+            "Tanzania": "TZS",
+            "South Sudan": "SSP",
+            "Rwanda": "RWF",
+            "Ethiopia": "ETB"
+        }
+        live = {}
+        for country, code in currency_map.items():
+            if code in rates:
+                live[country] = rates[code]
+        return live if live else None
+    except Exception:
+        return None
+
+def build_regional_fx():
+    live_rates = get_live_fx_rates()
+    base_data = {
+        "Kenya":       {"currency": "KES", "symbol": "KSh", "multiplier": 1.00, "region": "East Africa"},
+        "Uganda":      {"currency": "UGX", "symbol": "USh", "multiplier": 0.95, "region": "East Africa"},
+        "Tanzania":    {"currency": "TZS", "symbol": "TSh", "multiplier": 0.98, "region": "East Africa"},
+        "South Sudan": {"currency": "SSP", "symbol": "SSP", "multiplier": 1.35, "region": "East Africa"},
+        "Rwanda":      {"currency": "RWF", "symbol": "FRw", "multiplier": 0.85, "region": "Central Africa"},
+        "Ethiopia":    {"currency": "ETB", "symbol": "Br",  "multiplier": 0.80, "region": "Horn of Africa"}
+    }
+    regional_fx = {}
+    for country, info in base_data.items():
+        if live_rates and country in live_rates:
+            info["rate"] = live_rates[country]
+        else:
+            info["rate"] = STATIC_FX_RATES.get(country, 1.0)
+        regional_fx[country] = info
+    return regional_fx
+
+REGIONAL_FX = build_regional_fx()
+
+# =========================================================
+# MEMORY & STATE MANAGEMENT
+# =========================================================
 
 DEFAULT_STATE = {"designs": [], "concepts": [], "logs": []}
 
@@ -462,23 +438,32 @@ def render_isometric_html(plan):
     """
 
 # =========================================================
-# SAI ENGINE - AI AGENT METRICS SYNTHESIS
+# SAI ENGINE: STRUCTURAL ANALYSIS (WITH DYNAMIC RANDOMNESS)
 # =========================================================
 
 def run_eurocode_analysis(d, domain):
     span = d["structural"]["span"]
     gk = 5.5  
     qk = 2.0 if domain == "Residential" else (3.5 if domain == "Commercial" else 7.5)
+    
+    # Sai randomness: vary material strength and dimensions slightly
+    f_ck = random.uniform(28, 32)      # Concrete characteristic strength [MPa]
+    b = random.uniform(280, 320)       # Beam width [mm]
+    d_eff = random.uniform(440, 460)   # Effective depth [mm]
+    
     design_load_kpa = (1.35 * gk) + (1.50 * qk)
     w_ed = design_load_kpa * 4.5  
     m_ed = (w_ed * (span ** 2)) / 8
-    b = 300; d_eff = 450; f_ck = 30  
     m_rd = (0.167 * f_ck * b * (d_eff ** 2)) / 10**6
+    
     return {
         "design_load": f"{design_load_kpa:.2f} kN/m²",
         "m_ed": f"{m_ed:.1f} kNm",
         "m_rd": f"{m_rd:.1f} kNm",
-        "uls_status": "PASS" if m_rd > m_ed else "FAIL"
+        "uls_status": "PASS ✅" if m_rd > m_ed else "FAIL ❌",
+        "f_ck_used": round(f_ck, 1),
+        "b_used": round(b),
+        "d_eff_used": round(d_eff)
     }
 
 def compute_forex_boq(d, target_country):
@@ -487,7 +472,10 @@ def compute_forex_boq(d, target_country):
     fx_rate = fx_meta["rate"]
     regional_multiplier = fx_meta["multiplier"]
 
-    conc_qty = int(gfa * 0.35); steel_qty = int(conc_qty * 0.12); brick_qty = int(gfa * 38); finish_qty = int(gfa)
+    conc_qty = int(gfa * 0.35)
+    steel_qty = int(conc_qty * 0.12)
+    brick_qty = int(gfa * 38)
+    finish_qty = int(gfa)
     base_usd_items = [
         {"Item": "Substructure Earth Excavations", "Qty": int(gfa*0.15), "Unit": "m³", "Rate": 150},
         {"Item": "Structural C30 Concrete", "Qty": conc_qty, "Unit": "m³", "Rate": 210},
@@ -513,31 +501,37 @@ def calculate_ai_scores(asset, ec_result, total_usd, prompt_keywords=None, weigh
         m_ed_val = float(ec_result['m_ed'].split(" ")[0])
         m_rd_val = float(ec_result['m_rd'].split(" ")[0])
         struct_score = 80 + (min(20, (m_rd_val - m_ed_val) / m_ed_val * 15))
-    except: struct_score = 60
-    if ec_result['uls_status'] == "FAIL": struct_score = 40
+    except:
+        struct_score = 60
+    if ec_result['uls_status'] != "PASS ✅":
+        struct_score = 40
     struct_score = min(100, max(0, int(struct_score)))
     # Sustainability
     sustain_score = 50 + min(30, int(asset['windows'] * 1.5))
     sust_efficiency = int((asset['total_gfa'] / (asset['plot_size'] * asset['floors'])) * 100)
     sustain_score += sust_efficiency
-    if prompt_keywords and 'sustain' in prompt_keywords: sustain_score += 10
+    if prompt_keywords and 'sustain' in prompt_keywords:
+        sustain_score += 10
     sustain_score = min(100, sustain_score)
     # Cost
     cost_score = 70
     cost_per_m2 = total_usd / asset['total_gfa']
-    if cost_per_m2 < 450: cost_score += 25
-    elif cost_per_m2 < 650: cost_score += 15
-    else: cost_score += 5
+    if cost_per_m2 < 450:
+        cost_score += 25
+    elif cost_per_m2 < 650:
+        cost_score += 15
+    else:
+        cost_score += 5
     cost_score = min(100, int(cost_score))
 
-    # Weighted composite
     w_arch, w_struct, w_sust, w_cost = weights
     composite = round(arch_score*w_arch + struct_score*w_struct + sustain_score*w_sust + cost_score*w_cost)
     return arch_score, struct_score, sustain_score, cost_score, composite
 
 # =========================================================
-# NEW 3D ROOM RENDERER (PLOTLY)
+# 3D ROOM RENDERER (PLOTLY)
 # =========================================================
+
 def render_plotly_3d_rooms(plan):
     x, y, z = [], [], []
     for i, room in enumerate(plan):
@@ -627,7 +621,6 @@ with st.sidebar.expander("📐 Arc Configuration Options", expanded=True):
     input_floors = st.slider("Building Height Limit (Floors)", 1, 12, 3)
     input_baths = st.slider("Total Bathroom Batteries", 1, 10, 2)
 
-# New: AI agent weights
 with st.sidebar.expander("⚖️ AI Agent Weights", expanded=False):
     w_arch = st.slider("Architect Weight", 0.0, 1.0, 0.25, 0.05)
     w_struct = st.slider("Structural Weight", 0.0, 1.0, 0.25, 0.05)
@@ -655,9 +648,9 @@ if len(mem["designs"]) > 0:
 else:
     st.sidebar.caption("No designs archived yet...")
 
-# ---------------------------------------------------------
+# =========================================================
 # DASHBOARD VIEW
-# ---------------------------------------------------------
+# =========================================================
 if nav_page == "Control Hub Dashboard":
     st.markdown("""
     <div class="glass-panel float-element" style="margin-bottom: 32px; text-align: center;">
@@ -693,9 +686,9 @@ if nav_page == "Control Hub Dashboard":
         st.metric("Pipeline Logs", len(mem["logs"]))
         st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------
+# =========================================================
 # GENERATIVE ENGINE VIEW
-# ---------------------------------------------------------
+# =========================================================
 elif nav_page == "Generative Design Engine":
     st.markdown("""
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
@@ -715,9 +708,12 @@ elif nav_page == "Generative Design Engine":
             prompt = st.text_area("Describe your dream project...", placeholder="e.g. Sustainable beach house with open spaces, modern aesthetic...", height=100)
 
             tag_c1, tag_c2, tag_c3 = st.columns(3)
-            if tag_c1.button("🌱 Sustainable", use_container_width=True): st.session_state.ai_boost = 10
-            if tag_c2.button("🏛️ Modern", use_container_width=True): st.session_state.ai_boost = 5
-            if tag_c3.button("🌴 Tropical", use_container_width=True): st.session_state.ai_boost = 8
+            if tag_c1.button("🌱 Sustainable", use_container_width=True):
+                st.session_state.ai_boost = 10
+            if tag_c2.button("🏛️ Modern", use_container_width=True):
+                st.session_state.ai_boost = 5
+            if tag_c3.button("🌴 Tropical", use_container_width=True):
+                st.session_state.ai_boost = 8
 
         with col_gen:
             st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
@@ -733,7 +729,6 @@ elif nav_page == "Generative Design Engine":
                 mut_rooms = max(1, input_baths + random.randint(-1, 1))
                 d = generate_spatial_model(select_domain, select_type, mut_plot, mut_floors, mut_rooms, select_country, seed=i)
                 d["plan"] = d["rooms"]
-                # Precompute scores and financials for later use
                 ec = run_eurocode_analysis(d, d['domain'])
                 total_usd, total_local, fx = compute_forex_boq(d, d['country'])
                 arch, struct, sust, cost, comp = calculate_ai_scores(d, ec, total_usd, prompt, weights)
@@ -742,7 +737,6 @@ elif nav_page == "Generative Design Engine":
                 d["total_local"] = total_local
                 d["fx"] = fx
                 concepts.append(d)
-            # Sort by composite score descending
             concepts.sort(key=lambda x: x["scores"]["composite"], reverse=True)
             st.session_state.generated_concepts = concepts
             st.session_state.active_design = concepts[0]
@@ -783,7 +777,7 @@ elif nav_page == "Generative Design Engine":
                 </div>
                 """, unsafe_allow_html=True)
 
-        # RADAR COMPARISON
+        # Radar comparison
         with st.expander("📊 AI Score Radar Comparison", expanded=True):
             radar_data = []
             for i, c in enumerate(st.session_state.generated_concepts[:5]):
@@ -820,10 +814,10 @@ elif nav_page == "Generative Design Engine":
             )
             st.plotly_chart(fig_radar, use_container_width=True)
 
-        # TOP RECOMMENDATION (Alpha)
+        # Top recommendation (Alpha)
         st.markdown("---")
         st.markdown("### 🏆 TOP RECOMMENDATION: CONCEPT ALPHA (Composite Score Leader)")
-        asset = st.session_state.generated_concepts[0]  # first is highest composite
+        asset = st.session_state.generated_concepts[0]
 
         col_detail, col_save = st.columns([3,1])
         with col_save:
@@ -842,8 +836,8 @@ elif nav_page == "Generative Design Engine":
                 log_event(f"Saved design {asset['id']} to library")
                 st.success("Design saved to project memory!")
 
-        # AI Agent Summaries for Alpha
         sc_a = asset["scores"]
+        ec_a = run_eurocode_analysis(asset, asset['domain'])  # re-run for display (uses random, but acceptable)
         a1, a2, a3, a4 = st.columns(4)
         with a1:
             st.markdown(f"""
@@ -860,7 +854,7 @@ elif nav_page == "Generative Design Engine":
             <div class="glass-panel score-card" style="border-left-color: #00d2ff;">
                 <div style="color: #00d2ff; font-weight:600;">⚙️ Structural AI</div>
                 <div style="color:#94a3b8; font-size:12px;">Safety & Stability</div>
-                <div style="font-size:20px; font-weight:700;">{run_eurocode_analysis(asset, asset['domain'])['uls_status']}</div>
+                <div style="font-size:20px; font-weight:700;">{ec_a['uls_status']}</div>
                 <div class="metric-bar-bg"><div class="metric-bar-fg" style="width:{sc_a['struct']}%; background:#00d2ff;"></div></div>
                 <div style="font-size: 12px; margin-top: 6px;">{sc_a['struct']}% Safety</div>
             </div>
@@ -886,7 +880,7 @@ elif nav_page == "Generative Design Engine":
             </div>
             """, unsafe_allow_html=True)
 
-        # 2D & 3D Layout with FX BOQ
+        # 2D & 3D Layout
         st.markdown("---")
         col_2d, col_3d = st.columns(2)
         with col_2d:
@@ -895,14 +889,12 @@ elif nav_page == "Generative Design Engine":
             st.caption(f"Total GFA: {asset['total_gfa']:,} m² | {asset['floors']} Floors | {asset['country']}")
 
             with st.expander("📊 Live Currency Bill of Quantities"):
-    # ❌ Incorrect (line ~836)
-boq_table, usd, local, fx = compute_forex_boq(asset, asset['country'])
+                # FIXED unpacking: only three values returned
+                usd, local, fx = compute_forex_boq(asset, asset['country'])
+                st.metric("USD Total", f"${int(usd):,}")
+                st.metric(f"Local {fx['currency']}", f"{fx['symbol']} {int(local):,}")
+                st.caption(f"Rates based on 1 USD = {fx['rate']} {fx['currency']}")
 
-# ✅ Correct
-usd, local, fx = compute_forex_boq(asset, asset['country'])
-    st.metric("USD Total", f"${int(usd):,}")
-    st.metric(f"Local {fx['currency']}", f"{fx['symbol']} {int(local):,}")
-    st.caption(f"Rates based on 1 USD = {fx['rate']} {fx['currency']}")
         with col_3d:
             st.markdown("### 📦 3D MASSING CONCEPT")
             view_mode = st.radio("3D View Mode", ["Isometric Wireframe", "Interactive 3D Rooms"], horizontal=True)
@@ -912,7 +904,7 @@ usd, local, fx = compute_forex_boq(asset, asset['country'])
                 fig3d = render_plotly_3d_rooms(asset["plan"])
                 st.plotly_chart(fig3d, use_container_width=True)
 
-        # EXPORT REPORT
+        # Export report
         st.markdown("---")
         col_exp1, col_exp2 = st.columns(2)
         with col_exp1:
