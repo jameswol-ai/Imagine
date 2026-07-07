@@ -1,20 +1,27 @@
 # =========================================================
 # ARC — ARCHITECTURAL INTELLECT & EAST AFRICAN FOREX ENGINE
-# Generative Multi‑Story Floor Plan & Regional Cost Synthesis
-# Sai Engine & Random FX Visual Overhaul v15.1 – Live Rates & Dynamic Struct
+# streamlit_app.py  –  UI Layer (v15.1 modular)
 # =========================================================
 
 import streamlit as st
 import json
-import uuid
 import random
 import time
 from pathlib import Path
 from datetime import datetime
-import requests  # For live FX
 import numpy as np
-from 01_Sai_Engine import ARCH_DOMAINS, generate_spatial_model, run_eurocode_analysis, calculate_ai_scores
-from 02_Forex_FX import (
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+
+# ── Import our domain modules ──────────────────────────
+from modules.sai_engine import (
+    ARCH_DOMAINS,
+    generate_spatial_model,
+    run_eurocode_analysis,
+    calculate_ai_scores,
+)
+from modules.forex_fx import (
     initialize_fx_rates,
     get_fx_data,
     get_all_countries,
@@ -25,36 +32,23 @@ from 02_Forex_FX import (
     reset_rates_to_baseline,
 )
 
-# Initialize FX once
-initialize_fx_rates()
-
-# Then in the UI:
-#   - get_all_countries() → for the country selectbox
-#   - convert_currency() → for the Forex Converter widget
-#   - compute_forex_boq() → for cost estimation
-#   - simulate_random_fx() and set_rate() → for volatility simulation
-
-# For charts and 3D
-import plotly.graph_objects as go
-import plotly.express as px
-import pandas as pd
-
 # =========================================================
-# CONFIG & GLOBAL HUD COSMETICS
+# INITIALISE CORE SERVICES
 # =========================================================
-
-st.set_page_config(
-    page_title="RANDOM V3 | Sai Engine & FX",
-    page_icon="📐",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+initialize_fx_rates()   # fetch live rates / set static fallbacks
 
 MEMORY_FILE = Path("arc_studio_v13.json")
 
 # =========================================================
-# ADVANCED CUSTOM CSS & ANIMATED GLASSMORPHISM ENGINE
+# CUSTOM CSS (ANIMATED GLASSMORPHISM)
 # =========================================================
+st.set_page_config(
+    page_title="RANDOM V3 | Sai Engine & FX",
+    page_icon="📐",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap');
@@ -261,71 +255,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
-# LIVE FX RATES ENGINE (with fallback)
-# =========================================================
-
-STATIC_FX_RATES = {
-    "Kenya":       129.49,
-    "Uganda":      3665.20,
-    "Tanzania":    2625.00,
-    "South Sudan": 4626.40,
-    "Rwanda":      1330.00,
-    "Ethiopia":    125.00
-}
-
-def get_live_fx_rates():
-    """Try to fetch live rates from ExchangeRate-API (free tier)."""
-    try:
-        response = requests.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
-        data = response.json()
-        rates = data.get("rates", {})
-        currency_map = {
-            "Kenya": "KES",
-            "Uganda": "UGX",
-            "Tanzania": "TZS",
-            "South Sudan": "SSP",
-            "Rwanda": "RWF",
-            "Ethiopia": "ETB"
-        }
-        live = {}
-        for country, code in currency_map.items():
-            if code in rates:
-                live[country] = rates[code]
-        return live if live else None
-    except Exception:
-        return None
-
-def build_regional_fx():
-    live_rates = get_live_fx_rates()
-    base_data = {
-        "Kenya":       {"currency": "KES", "symbol": "KSh", "multiplier": 1.00, "region": "East Africa"},
-        "Uganda":      {"currency": "UGX", "symbol": "USh", "multiplier": 0.95, "region": "East Africa"},
-        "Tanzania":    {"currency": "TZS", "symbol": "TSh", "multiplier": 0.98, "region": "East Africa"},
-        "South Sudan": {"currency": "SSP", "symbol": "SSP", "multiplier": 1.35, "region": "East Africa"},
-        "Rwanda":      {"currency": "RWF", "symbol": "FRw", "multiplier": 0.85, "region": "Central Africa"},
-        "Ethiopia":    {"currency": "ETB", "symbol": "Br",  "multiplier": 0.80, "region": "Horn of Africa"}
-    }
-    regional_fx = {}
-    for country, info in base_data.items():
-        if live_rates and country in live_rates:
-            info["rate"] = live_rates[country]
-        else:
-            info["rate"] = STATIC_FX_RATES.get(country, 1.0)
-        regional_fx[country] = info
-    return regional_fx
-
-REGIONAL_FX = build_regional_fx()
-# Save baseline for volatility resets
-BASELINE_FX_RATES = {country: data["rate"] for country, data in REGIONAL_FX.items()}
-
-def simulate_random_fx(base_rate, volatility=0.02):
-    """Apply Gaussian noise to simulate market fluctuations."""
-    return base_rate * (1 + random.gauss(0, volatility))
-
-# =========================================================
 # MEMORY & STATE MANAGEMENT
 # =========================================================
-
 DEFAULT_STATE = {"designs": [], "concepts": [], "logs": []}
 
 def load_memory():
@@ -352,152 +283,8 @@ def log_event(msg):
     save_memory()
 
 # =========================================================
-# ARCHITECTURAL MATRIX SYNTHESIS
-# =========================================================
-
-ARCH_DOMAINS = {
-    "Residential": ["Luxury Villa", "Modern Apartment", "Townhouse Studio"],
-    "Commercial": ["Corporate Hub Block", "Boutique Retail Space", "Medical Clinic Center"],
-    "Industrial": ["Distribution Depot", "Heavy Machinery Plant Warehouse"]
-}
-
-def generate_spatial_model(domain, btype, plot_size, floors, target_bathrooms, target_country, seed=0):
-    random.seed(seed if seed else int(time.time()))
-    max_footprint = int(plot_size * 0.65)
-    floor_area = min(max_footprint, random.randint(120, int(max_footprint * 1.1)))
-    total_gfa = floor_area * floors
-
-    span_length = 6.0 if domain == "Residential" else (7.5 if domain == "Commercial" else 12.0)
-    col_count = max(12, int((floor_area / (span_length * 5.0)) * 4))
-    beam_count = int(col_count * 1.8)
-
-    rooms = []
-    rooms.append({"name": "Central Corridor Gallery", "type": "Corridor", "w": 2.5, "h": 14.0, "color": "#1e293b"})
-    rooms.append({"name": "Main Staircase Core", "type": "Stairs", "w": 4.5, "h": 4.0, "color": "#334155"})
-
-    if domain == "Residential":
-        rooms.append({"name": "Grand Living Room", "type": "Living Room", "w": 7.0, "h": 5.5, "color": "#0d2040"})
-        rooms.append({"name": "Chef's Kitchen Deck", "type": "Kitchen", "w": 4.5, "h": 4.0, "color": "#053020"})
-        bedroom_count = max(1, int(total_gfa / 75))
-        for i in range(bedroom_count):
-            rooms.append({"name": f"Master Suite {i+1}", "type": "Bedroom", "w": 4.5, "h": 4.0, "color": "#2a0f4d"})
-    elif domain == "Commercial":
-        rooms.append({"name": "Co-Working Hub Suite", "type": "Office Space", "w": 12.0, "h": 8.0, "color": "#075e8a"})
-        rooms.append({"name": "Executive Dialogue Hall", "type": "Conference", "w": 6.0, "h": 5.0, "color": "#1e1b4b"})
-    else:
-        rooms.append({"name": "Main Production Bay Floor", "type": "Manufacturing Floor", "w": 18.0, "h": 12.0, "color": "#3b0764"})
-        rooms.append({"name": "Logistics Dispatch Terminal", "type": "Loading Bay", "w": 8.0, "h": 8.0, "color": "#451a03"})
-
-    for b in range(target_bathrooms):
-        rooms.append({"name": f"Sanitary Bathroom {b+1}", "type": "Bathroom", "w": 3.0, "h": 2.5, "color": "#4a2306"})
-
-    doors = len(rooms) + floors * 2
-    windows = max(4, int(total_gfa / 16))
-
-    return {
-        "id": str(uuid.uuid4())[:8].upper(),
-        "domain": domain, "type": btype, "plot_size": plot_size,
-        "floors": floors, "floor_area": floor_area, "total_gfa": total_gfa,
-        "rooms": rooms, "doors": doors, "windows": windows,
-        "country": target_country,
-        "structural": {"columns": int(col_count * floors), "beams": int(beam_count * floors), "span": span_length}
-    }
-
-# =========================================================
-# SAI ENGINE: STRUCTURAL ANALYSIS (WITH DYNAMIC RANDOMNESS)
-# =========================================================
-
-def run_eurocode_analysis(d, domain):
-    span = d["structural"]["span"]
-    gk = 5.5  
-    qk = 2.0 if domain == "Residential" else (3.5 if domain == "Commercial" else 7.5)
-    
-    # Sai randomness: vary material strength and dimensions slightly
-    f_ck = random.uniform(28, 32)      # Concrete characteristic strength [MPa]
-    b = random.uniform(280, 320)       # Beam width [mm]
-    d_eff = random.uniform(440, 460)   # Effective depth [mm]
-    
-    design_load_kpa = (1.35 * gk) + (1.50 * qk)
-    w_ed = design_load_kpa * 4.5  
-    m_ed = (w_ed * (span ** 2)) / 8
-    m_rd = (0.167 * f_ck * b * (d_eff ** 2)) / 10**6
-    
-    return {
-        "design_load": f"{design_load_kpa:.2f} kN/m²",
-        "m_ed": f"{m_ed:.1f} kNm",
-        "m_rd": f"{m_rd:.1f} kNm",
-        "uls_status": "PASS ✅" if m_rd > m_ed else "FAIL ❌",
-        "f_ck_used": round(f_ck, 1),
-        "b_used": round(b),
-        "d_eff_used": round(d_eff)
-    }
-
-def compute_forex_boq(d, target_country):
-    gfa = d["total_gfa"]
-    fx_meta = REGIONAL_FX[target_country]
-    fx_rate = fx_meta["rate"]
-    regional_multiplier = fx_meta["multiplier"]
-
-    conc_qty = int(gfa * 0.35)
-    steel_qty = int(conc_qty * 0.12)
-    brick_qty = int(gfa * 38)
-    finish_qty = int(gfa)
-    base_usd_items = [
-        {"Item": "Substructure Earth Excavations", "Qty": int(gfa*0.15), "Unit": "m³", "Rate": 150},
-        {"Item": "Structural C30 Concrete", "Qty": conc_qty, "Unit": "m³", "Rate": 210},
-        {"Item": "Tensile Steel Bars (B500B)", "Qty": steel_qty, "Unit": "Tons", "Rate": 1200},
-        {"Item": "Blockwork Masonry", "Qty": brick_qty, "Unit": "Pcs", "Rate": 2.5},
-        {"Item": "Floor Screed & Tiling", "Qty": finish_qty, "Unit": "m²", "Rate": 40},
-        {"Item": "Timber Door Fittings", "Qty": d["doors"], "Unit": "Sets", "Rate": 300},
-        {"Item": "Aluminum Window Assemblies", "Qty": d["windows"], "Unit": "Sets", "Rate": 450}
-    ]
-    grand_total_usd = 0
-    for item in base_usd_items:
-        adjusted_rate = item["Rate"] * regional_multiplier
-        grand_total_usd += item["Qty"] * adjusted_rate
-    grand_total_local = grand_total_usd * fx_rate
-    return grand_total_usd, grand_total_local, fx_meta
-
-def calculate_ai_scores(asset, ec_result, total_usd, prompt_keywords=None, weights=(0.25,0.25,0.25,0.25)):
-    # Architecture
-    arch_score = 50 + min(20, asset['floors'] * 3) + min(15, len(asset['rooms']) * 1.5)
-    arch_score = min(100, arch_score + random.randint(-5, 5))
-    # Structural
-    try:
-        m_ed_val = float(ec_result['m_ed'].split(" ")[0])
-        m_rd_val = float(ec_result['m_rd'].split(" ")[0])
-        struct_score = 80 + (min(20, (m_rd_val - m_ed_val) / m_ed_val * 15))
-    except:
-        struct_score = 60
-    if ec_result['uls_status'] != "PASS ✅":
-        struct_score = 40
-    struct_score = min(100, max(0, int(struct_score)))
-    # Sustainability
-    sustain_score = 50 + min(30, int(asset['windows'] * 1.5))
-    sust_efficiency = int((asset['total_gfa'] / (asset['plot_size'] * asset['floors'])) * 100)
-    sustain_score += sust_efficiency
-    if prompt_keywords and 'sustain' in prompt_keywords:
-        sustain_score += 10
-    sustain_score = min(100, sustain_score)
-    # Cost
-    cost_score = 70
-    cost_per_m2 = total_usd / asset['total_gfa']
-    if cost_per_m2 < 450:
-        cost_score += 25
-    elif cost_per_m2 < 650:
-        cost_score += 15
-    else:
-        cost_score += 5
-    cost_score = min(100, int(cost_score))
-
-    w_arch, w_struct, w_sust, w_cost = weights
-    composite = round(arch_score*w_arch + struct_score*w_struct + sustain_score*w_sust + cost_score*w_cost)
-    return arch_score, struct_score, sustain_score, cost_score, composite
-
-# =========================================================
 # GRAPHICS RENDERING (2D & ISOMETRIC)
 # =========================================================
-
 def render_native_blueprint(plan):
     canvas_html = '<div class="arc-blueprint-canvas" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; background:#0a0f1c; padding:24px; border-radius:18px; border:1px dashed #334155; margin:10px 0; box-shadow: inset 0 0 30px rgba(0,0,0,0.5);">'
     for room in plan:
@@ -622,7 +409,7 @@ if "ai_boost" not in st.session_state:
 mem = st.session_state.memory
 
 # =========================================================
-# UI LAYERS
+# SIDEBAR UI
 # =========================================================
 st.sidebar.markdown("""
 <div style="font-size: 2rem; font-weight: 700; font-family: 'Space Grotesk';">
@@ -635,7 +422,7 @@ nav_page = st.sidebar.radio("Studio Workspace", ["Control Hub Dashboard", "Gener
 st.sidebar.markdown("---")
 
 with st.sidebar.expander("📐 Arc Configuration Options", expanded=True):
-    select_country = st.selectbox("East African Target Region", list(REGIONAL_FX.keys()))
+    select_country = st.selectbox("East African Target Region", get_all_countries())
     select_domain = st.selectbox("Structural Logic Domain", list(ARCH_DOMAINS.keys()))
     select_type = st.selectbox("Specific Typology", ARCH_DOMAINS[select_domain])
     input_plot = st.slider("Total Boundary Plot Area (m²)", 200, 5000, 800, step=50)
@@ -658,31 +445,19 @@ with st.sidebar.expander("⚖️ AI Agent Weights", expanded=False):
 
 # ── Forex Converter Widget ──────────────────────────
 with st.sidebar.expander("💱 Forex Converter", expanded=False):
-    currencies = ["USD"] + list(REGIONAL_FX.keys())
+    currencies = ["USD"] + get_all_countries()
     convert_from = st.selectbox("From", currencies, key="conv_from")
     convert_to = st.selectbox("To", currencies, key="conv_to")
     amount = st.number_input("Amount", min_value=0.0, value=1000.0, step=100.0)
 
-    if convert_from == convert_to:
-        result = amount
-    else:
-        if convert_from == "USD":
-            usd_value = amount
-        else:
-            usd_value = amount / REGIONAL_FX[convert_from]["rate"]
-        if convert_to == "USD":
-            result = usd_value
-        else:
-            result = usd_value * REGIONAL_FX[convert_to]["rate"]
+    result = convert_currency(amount, convert_from, convert_to)
 
-    sym_from = "$" if convert_from == "USD" else REGIONAL_FX[convert_from]["symbol"]
-    sym_to = "$" if convert_to == "USD" else REGIONAL_FX[convert_to]["symbol"]
+    sym_from = "$" if convert_from == "USD" else get_fx_data(convert_from)["symbol"]
+    sym_to = "$" if convert_to == "USD" else get_fx_data(convert_to)["symbol"]
     st.metric(f"{sym_from} {amount:,.2f} → {sym_to} {result:,.2f}")
 
     if convert_from != convert_to:
-        rate = REGIONAL_FX[convert_to]["rate"] / (
-            REGIONAL_FX[convert_from]["rate"] if convert_from != "USD" else 1.0
-        )
+        rate = get_fx_data(convert_to)["rate"] / (get_fx_data(convert_from)["rate"] if convert_from != "USD" else 1.0)
         st.caption(f"1 {convert_from} = {rate:.4f} {convert_to}")
 
 st.sidebar.markdown("---")
@@ -711,7 +486,8 @@ if nav_page == "Control Hub Dashboard":
 
     st.markdown("### 💹 LIVE RANDOM FX INDICES")
     fx_cols = st.columns(6)
-    for i, (country, data) in enumerate(REGIONAL_FX.items()):
+    for i, country in enumerate(get_all_countries()):
+        data = get_fx_data(country)
         with fx_cols[i]:
             st.markdown(f"""
             <div class="glass-panel" style="padding: 16px 8px; text-align: center;">
@@ -721,9 +497,8 @@ if nav_page == "Control Hub Dashboard":
             </div>
             """, unsafe_allow_html=True)
 
-    # Simulated FX history chart
     with st.expander("📈 Simulated KES/USD History (60 days)", expanded=False):
-        start_rate = REGIONAL_FX["Kenya"]["rate"]
+        start_rate = get_fx_data("Kenya")["rate"]
         np.random.seed(42)
         random_steps = np.random.normal(0, 0.008, 60)
         rates = [start_rate]
@@ -762,7 +537,6 @@ elif nav_page == "Generative Design Engine":
     </div>
     """, unsafe_allow_html=True)
 
-    # Copilot Input
     with st.container():
         col_input, col_gen = st.columns([2.5, 1])
         with col_input:
@@ -782,7 +556,6 @@ elif nav_page == "Generative Design Engine":
             st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
             trigger_synthesis = st.button("✨ Generate Concepts", type="primary", use_container_width=True)
 
-    # --- Evolution Engine & Sai Processing ---
     if trigger_synthesis:
         with st.spinner("🧠 Sai Engine synthesizing 5 architectural variations..."):
             concepts = []
@@ -790,10 +563,12 @@ elif nav_page == "Generative Design Engine":
                 mut_plot = input_plot + random.randint(-150, 150)
                 mut_floors = max(1, input_floors + random.randint(-1, 1))
                 mut_rooms = max(1, input_baths + random.randint(-1, 1))
-                d = generate_spatial_model(select_domain, select_type, mut_plot, mut_floors, mut_rooms, select_country, seed=i)
+                d = generate_spatial_model(
+                    select_domain, select_type, mut_plot, mut_floors, mut_rooms, select_country, seed=i
+                )
                 d["plan"] = d["rooms"]
-                ec = run_eurocode_analysis(d, d['domain'])
-                total_usd, total_local, fx = compute_forex_boq(d, d['country'])
+                ec = run_eurocode_analysis(d, d["domain"])
+                total_usd, total_local, fx = compute_forex_boq(d, d["country"])
                 arch, struct, sust, cost, comp = calculate_ai_scores(d, ec, total_usd, prompt, weights)
                 d["scores"] = {"arch": arch, "struct": struct, "sust": sust, "cost": cost, "composite": comp}
                 d["total_usd"] = total_usd
@@ -840,7 +615,6 @@ elif nav_page == "Generative Design Engine":
                 </div>
                 """, unsafe_allow_html=True)
 
-        # Radar comparison
         with st.expander("📊 AI Score Radar Comparison", expanded=True):
             radar_data = []
             for i, c in enumerate(st.session_state.generated_concepts[:5]):
@@ -877,7 +651,7 @@ elif nav_page == "Generative Design Engine":
             )
             st.plotly_chart(fig_radar, use_container_width=True)
 
-        # Top recommendation (Alpha)
+        # Top recommendation
         st.markdown("---")
         st.markdown("### 🏆 TOP RECOMMENDATION: CONCEPT ALPHA (Composite Score Leader)")
         asset = st.session_state.generated_concepts[0]
@@ -900,7 +674,7 @@ elif nav_page == "Generative Design Engine":
                 st.success("Design saved to project memory!")
 
         sc_a = asset["scores"]
-        ec_a = run_eurocode_analysis(asset, asset['domain'])  # re-run for display
+        ec_a = run_eurocode_analysis(asset, asset['domain'])
         a1, a2, a3, a4 = st.columns(4)
         with a1:
             st.markdown(f"""
@@ -952,25 +726,23 @@ elif nav_page == "Generative Design Engine":
             st.caption(f"Total GFA: {asset['total_gfa']:,} m² | {asset['floors']} Floors | {asset['country']}")
 
             with st.expander("📊 Live Currency Bill of Quantities"):
-                # Random FX volatility simulation toggle
                 use_volatility = st.checkbox("📈 Simulate FX Volatility", value=False)
                 if use_volatility:
                     volatility_pct = st.slider("Volatility %", 0.5, 10.0, 2.0) / 100
-                    # Apply noise to rates temporarily
-                    for country in REGIONAL_FX:
-                        REGIONAL_FX[country]["rate"] = simulate_random_fx(
-                            BASELINE_FX_RATES[country], volatility_pct
-                        )
-                # Compute BOQ with possibly modified rates
+                    # Apply random volatility
+                    for country in get_all_countries():
+                        base_rate = get_fx_data(country)["rate"]  # original from baseline? Not quite; we need baseline
+                        # Actually we stored baseline rates in initialize, we can access them via the module's _BASELINE_RATES
+                        from modules.forex_fx import _BASELINE_RATES  # a bit hacky, better expose a function
+                        set_rate(country, simulate_random_fx(_BASELINE_RATES[country], volatility_pct))
                 usd, local, fx = compute_forex_boq(asset, asset['country'])
                 st.metric("USD Total", f"${int(usd):,}")
                 st.metric(f"Local {fx['currency']}", f"{fx['symbol']} {int(local):,}")
                 st.caption(f"1 USD = {fx['rate']:.2f} {fx['currency']}")
 
-                # Reset rates to baseline after display
+                # Reset rates after display
                 if use_volatility:
-                    for country in REGIONAL_FX:
-                        REGIONAL_FX[country]["rate"] = BASELINE_FX_RATES[country]
+                    reset_rates_to_baseline()
 
         with col_3d:
             st.markdown("### 📦 3D MASSING CONCEPT")
