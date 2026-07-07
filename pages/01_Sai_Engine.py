@@ -1,13 +1,12 @@
 """
 Sai Engine — Architectural generation, structural analysis, and multi‑agent scoring.
-No Streamlit or UI code here; pure logic and randomisation.
+No Streamlit or UI dependencies.
 """
 
 import random
 import uuid
 import time
 
-# ── Architectural typologies ────────────────────────
 ARCH_DOMAINS = {
     "Residential": ["Luxury Villa", "Modern Apartment", "Townhouse Studio"],
     "Commercial": ["Corporate Hub Block", "Boutique Retail Space", "Medical Clinic Center"],
@@ -18,7 +17,6 @@ ARCH_DOMAINS = {
 def generate_spatial_model(domain, btype, plot_size, floors, target_bathrooms, target_country, seed=0):
     """
     Create a random spatial plan (rooms, structural skeleton) for one concept.
-    Returns a dictionary with all plan metadata.
     """
     random.seed(seed if seed else int(time.time()))
     max_footprint = int(plot_size * 0.65)
@@ -76,7 +74,6 @@ def generate_spatial_model(domain, btype, plot_size, floors, target_bathrooms, t
 def run_eurocode_analysis(d, domain):
     """
     Simulate Eurocode 2 bending check with random material properties (Sai randomness).
-    Returns a dict with design load, moments, and pass/fail status.
     """
     span = d["structural"]["span"]
     gk = 5.5
@@ -106,7 +103,6 @@ def run_eurocode_analysis(d, domain):
 def calculate_ai_scores(asset, ec_result, total_usd, prompt_keywords=None, weights=(0.25, 0.25, 0.25, 0.25)):
     """
     Multi‑agent scoring: Architecture, Structure, Sustainability, Cost.
-    Returns individual scores and a weighted composite.
     """
     # Architecture
     arch_score = 50 + min(20, asset['floors'] * 3) + min(15, len(asset['rooms']) * 1.5)
