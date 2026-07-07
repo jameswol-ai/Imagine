@@ -6,7 +6,6 @@ and Bill of Quantities (BOQ) costing in local currency.
 import random
 import requests
 
-# ── Static fallback rates ───────────────────────────
 STATIC_FX_RATES = {
     "Kenya":       129.49,
     "Uganda":      3665.20,
@@ -16,7 +15,6 @@ STATIC_FX_RATES = {
     "Ethiopia":    125.00,
 }
 
-# ── Base country metadata ───────────────────────────
 _BASE_FX_DATA = {
     "Kenya":       {"currency": "KES", "symbol": "KSh", "multiplier": 1.00, "region": "East Africa"},
     "Uganda":      {"currency": "UGX", "symbol": "USh", "multiplier": 0.95, "region": "East Africa"},
@@ -26,8 +24,7 @@ _BASE_FX_DATA = {
     "Ethiopia":    {"currency": "ETB", "symbol": "Br",  "multiplier": 0.80, "region": "Horn of Africa"},
 }
 
-# Module‑level storage (initialized by initialize_fx_rates())
-_CURRENT_RATES = {}       # {country: rate}
+_CURRENT_RATES = {}
 _BASELINE_RATES = {}
 _CURRENCY_INFO = {}
 
@@ -56,10 +53,7 @@ def _fetch_live_rates():
 
 
 def initialize_fx_rates():
-    """
-    Build the global rate table, preferring live API data with static fallback.
-    Call once at startup.
-    """
+    """Build the global rate table, preferring live API data with static fallback."""
     live = _fetch_live_rates()
     for country, info in _BASE_FX_DATA.items():
         rate = live.get(country, STATIC_FX_RATES.get(country, 1.0)) if live else STATIC_FX_RATES.get(country, 1.0)
@@ -74,20 +68,18 @@ def initialize_fx_rates():
 
 
 def reset_rates_to_baseline():
-    """Restore the original (live or static) rates, e.g. after a volatility simulation."""
+    """Restore the original (live or static) rates."""
     for country in _BASELINE_RATES:
         _CURRENT_RATES[country] = _BASELINE_RATES[country]
 
 
 def simulate_random_fx(base_rate, volatility=0.02):
-    """Apply Gaussian noise to a rate (used for stress testing)."""
+    """Apply Gaussian noise to a rate (for stress testing)."""
     return base_rate * (1 + random.gauss(0, volatility))
 
 
 def get_fx_data(country):
-    """
-    Return a dict with current rate, currency, symbol, multiplier, region.
-    """
+    """Return a dict with current rate, currency, symbol, multiplier, region."""
     info = _CURRENCY_INFO[country].copy()
     info["rate"] = _CURRENT_RATES[country]
     return info
@@ -95,6 +87,11 @@ def get_fx_data(country):
 
 def get_rate(country):
     return _CURRENT_RATES[country]
+
+
+def get_baseline_rate(country):
+    """Return the baseline (original) rate for the given country."""
+    return _BASELINE_RATES[country]
 
 
 def set_rate(country, new_rate):
@@ -125,7 +122,6 @@ def convert_currency(amount, from_curr, to_curr):
 def compute_forex_boq(d, target_country):
     """
     Generate a Bill of Quantities in USD and local currency.
-    Uses the country’s cost multiplier and current FX rate.
     """
     gfa = d["total_gfa"]
     fx_data = get_fx_data(target_country)
