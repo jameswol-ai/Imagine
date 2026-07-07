@@ -14,25 +14,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-# ── Import our domain modules (now correctly named) ──────
-from sai_engine import (
-    ARCH_DOMAINS,
-    generate_spatial_model,
-    run_eurocode_analysis,
-    calculate_ai_scores,
-)
-from forex_fx import (
-    initialize_fx_rates,
-    get_fx_data,
-    get_all_countries,
-    convert_currency,
-    compute_forex_boq,
-    simulate_random_fx,
-    set_rate,
-    reset_rates_to_baseline,
-    get_baseline_rate,
-)
-
 # =========================================================
 # INITIALISE CORE SERVICES
 # =========================================================
