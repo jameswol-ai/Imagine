@@ -15,20 +15,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 import os, sys, traceback
 
-st.write("### File list in project root:")
-try:
-    st.write(os.listdir("."))
-except Exception as e:
-    st.write(f"Could not list directory: {e}")
-
-st.write("### Trying to import forex_fx...")
-try:
-    from forex_fx import initialize_fx_rates
-    st.success("✅ Import successful!")
-except Exception as e:
-    st.error(f"❌ Import failed: {e}")
-    st.code(traceback.format_exc())
-
 # =========================================================
 # INITIALISE CORE SERVICES
 # =========================================================
