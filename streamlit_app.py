@@ -833,7 +833,11 @@ elif nav_page == "Generative Design Engine":
             st.caption(f"Total GFA: {asset['total_gfa']:,} m² | {asset['floors']} Floors | {asset['country']}")
 
             with st.expander("📊 Live Currency Bill of Quantities"):
-    usd, local, fx = compute_forex_boq(asset, asset['country'])
+    # ❌ Incorrect (line ~836)
+boq_table, usd, local, fx = compute_forex_boq(asset, asset['country'])
+
+# ✅ Correct
+usd, local, fx = compute_forex_boq(asset, asset['country'])
     st.metric("USD Total", f"${int(usd):,}")
     st.metric(f"Local {fx['currency']}", f"{fx['symbol']} {int(local):,}")
     st.caption(f"Rates based on 1 USD = {fx['rate']} {fx['currency']}")
