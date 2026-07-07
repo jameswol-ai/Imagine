@@ -434,3 +434,31 @@ elif nav_page == "Generative Design Engine":
 
     else:
         st.info("No layout structures are currently loaded into memory. Adjust the parameters on the sidebar options panel and run the pipeline generator.")
+
+def render_concept_card(index, title, score):
+    # Determine color based on score
+    if score >= 85: color = "#22c55e"  # Green
+    elif score >= 75: color = "#eab308" # Yellow
+    else: color = "#3b82f6"             # Blue
+    
+    # SVG Circular Progress Arc (stroke-dasharray calculates the percentage)
+    radius = 18
+    circumference = radius * 2 * 3.14159
+    stroke_dash = (score / 100) * circumference
+
+    html = f"""
+    <div style="background: #131a26; border-radius: 12px; padding: 20px; border: 1px solid #2a3a4e; text-align: center; margin-bottom: 16px;">
+        <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 10px;">
+            <svg width="80" height="80" viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="18" stroke="#2a3a4e" stroke-width="4" fill="none"/>
+                <circle cx="25" cy="25" r="18" stroke="{color}" stroke-width="4" fill="none" 
+                        stroke-dasharray="{stroke_dash} {circumference}" stroke-linecap="round" 
+                        transform="rotate(-90 25 25)"/>
+            </svg>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Space Grotesk'; font-size: 20px; font-weight: 700; color: white;">{score}</div>
+        </div>
+        <div style="font-weight: 600; color: white;">Concept {title}</div>
+        <div style="font-size: 12px; color: #8a9bb5; margin-top: 5px;">Overall Score</div>
+    </div>
+    """
+    return html
