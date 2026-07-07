@@ -27,3 +27,11 @@ tests/
 ## 🚀 Quick Start
 pip install -r requirements.txt  
 streamlit run app.py
+
+## 🧭 How to Use
+1. Select a **target country** and adjust building parameters in the sidebar.
+2. Use the **Forex Converter** to check live exchange rates for any pair.
+3. Click **✨ Generate Concepts** to synthesise 5 design options.
+4. Review the AI scores, floor plans, and cost estimates (in USD & local currency).
+5. Toggle **Simulate FX Volatility** to see how rate fluctuations affect your budget.
+6. Download a full design report as Markdown.
