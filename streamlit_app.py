@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 from datetime import datetime
 import requests  # For live FX
+import numpy as np
 
 # For charts and 3D
 import plotly.graph_objects as go
@@ -243,7 +244,6 @@ st.markdown("""
 # LIVE FX RATES ENGINE (with fallback)
 # =========================================================
 
-# Static fallback rates
 STATIC_FX_RATES = {
     "Kenya":       129.49,
     "Uganda":      3665.20,
@@ -256,7 +256,6 @@ STATIC_FX_RATES = {
 def get_live_fx_rates():
     """Try to fetch live rates from ExchangeRate-API (free tier)."""
     try:
-        # No API key needed for demo endpoint
         response = requests.get("https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
         data = response.json()
         rates = data.get("rates", {})
@@ -296,6 +295,12 @@ def build_regional_fx():
     return regional_fx
 
 REGIONAL_FX = build_regional_fx()
+# Save baseline for volatility resets
+BASELINE_FX_RATES = {country: data["rate"] for country, data in REGIONAL_FX.items()}
+
+def simulate_random_fx(base_rate, volatility=0.02):
+    """Apply Gaussian noise to simulate market fluctuations."""
+    return base_rate * (1 + random.gauss(0, volatility))
 
 # =========================================================
 # MEMORY & STATE MANAGEMENT
@@ -377,65 +382,6 @@ def generate_spatial_model(domain, btype, plot_size, floors, target_bathrooms, t
         "country": target_country,
         "structural": {"columns": int(col_count * floors), "beams": int(beam_count * floors), "span": span_length}
     }
-
-# =========================================================
-# GRAPHICS RENDERING (2D & ISOMETRIC)
-# =========================================================
-
-def render_native_blueprint(plan):
-    canvas_html = '<div class="arc-blueprint-canvas" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; background:#0a0f1c; padding:24px; border-radius:18px; border:1px dashed #334155; margin:10px 0; box-shadow: inset 0 0 30px rgba(0,0,0,0.5);">'
-    for room in plan:
-        canvas_html += (
-            f'<div style="padding:16px; border-radius:12px; color:#fff; border:1px solid rgba(255,255,255,0.08); background-color:{room["color"]}; box-shadow:0 8px 24px rgba(0,0,0,0.4); transition: all 0.2s ease; cursor:pointer;" '
-            f'onmouseover="this.style.transform=\'scale(1.03)\'; this.style.boxShadow=\'0 12px 32px rgba(0,0,0,0.6)\';" '
-            f'onmouseout="this.style.transform=\'scale(1)\'; this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.4)\';">'
-            f'<div style="font-size:1rem; font-weight:600; font-family:\'Space Grotesk\';">{room["name"]}</div>'
-            f'<div style="font-size:0.8rem; opacity:0.8; margin-top:4px;">📐 {room["w"]}m × {room["h"]}m ({room["type"]})</div>'
-            f'</div>'
-        )
-    canvas_html += '</div>'
-    return canvas_html
-
-def render_isometric_html(plan):
-    canvas_w, canvas_h = 800, 380
-    shapes_js = ""
-    for idx, r in enumerate(plan):
-        offset_x = (idx % 3) * 170 + 100
-        offset_y = (idx // 3) * 110 + 130
-        rw = min(115, int(r["w"] * 14))
-        rh = min(95, int(r["h"] * 14))
-        color = r["color"]
-        shapes_js += f"""
-        ctx.fillStyle = "{color}";
-        ctx.beginPath();
-        ctx.moveTo({offset_x}, {offset_y});
-        ctx.lineTo({offset_x} + {rw}, {offset_y} - {rh}/2);
-        ctx.lineTo({offset_x} + {rw} + {rw}, {offset_y});
-        ctx.lineTo({offset_x} + {rw}, {offset_y} + {rh}/2);
-        ctx.closePath();
-        ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.stroke();
-        ctx.fillStyle = "rgba(255,255,255,0.06)";
-        ctx.beginPath();
-        ctx.moveTo({offset_x}, {offset_y});
-        ctx.lineTo({offset_x}, {offset_y} - 40);
-        ctx.lineTo({offset_x} + {rw}, {offset_y} + {rh}/2 - 40);
-        ctx.lineTo({offset_x} + {rw}, {offset_y} + {rh}/2);
-        ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px Space Grotesk";
-        ctx.fillText("{r['name']}", {offset_x} + 15, {offset_y} - 2);
-        """
-    return f"""
-    <div class="canvas-container">
-        <canvas id="arc3dCanvas" width="{canvas_w}" height="{canvas_h}" style="max-width:100%; background:#050814;"></canvas>
-        <script>
-            const canvas = document.getElementById('arc3dCanvas'); const ctx = canvas.getContext('2d');
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.04)';
-            for(let i=0; i<canvas.width; i+=40) {{ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }}
-            for(let j=0; j<canvas.height; j+=40) {{ ctx.beginPath(); ctx.moveTo(0,j); ctx.lineTo(canvas.width, j); ctx.stroke(); }}
-            {shapes_js}
-        </script>
-    </div>
-    """
 
 # =========================================================
 # SAI ENGINE: STRUCTURAL ANALYSIS (WITH DYNAMIC RANDOMNESS)
@@ -529,8 +475,63 @@ def calculate_ai_scores(asset, ec_result, total_usd, prompt_keywords=None, weigh
     return arch_score, struct_score, sustain_score, cost_score, composite
 
 # =========================================================
-# 3D ROOM RENDERER (PLOTLY)
+# GRAPHICS RENDERING (2D & ISOMETRIC)
 # =========================================================
+
+def render_native_blueprint(plan):
+    canvas_html = '<div class="arc-blueprint-canvas" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; background:#0a0f1c; padding:24px; border-radius:18px; border:1px dashed #334155; margin:10px 0; box-shadow: inset 0 0 30px rgba(0,0,0,0.5);">'
+    for room in plan:
+        canvas_html += (
+            f'<div style="padding:16px; border-radius:12px; color:#fff; border:1px solid rgba(255,255,255,0.08); background-color:{room["color"]}; box-shadow:0 8px 24px rgba(0,0,0,0.4); transition: all 0.2s ease; cursor:pointer;" '
+            f'onmouseover="this.style.transform=\'scale(1.03)\'; this.style.boxShadow=\'0 12px 32px rgba(0,0,0,0.6)\';" '
+            f'onmouseout="this.style.transform=\'scale(1)\'; this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.4)\';">'
+            f'<div style="font-size:1rem; font-weight:600; font-family:\'Space Grotesk\';">{room["name"]}</div>'
+            f'<div style="font-size:0.8rem; opacity:0.8; margin-top:4px;">📐 {room["w"]}m × {room["h"]}m ({room["type"]})</div>'
+            f'</div>'
+        )
+    canvas_html += '</div>'
+    return canvas_html
+
+def render_isometric_html(plan):
+    canvas_w, canvas_h = 800, 380
+    shapes_js = ""
+    for idx, r in enumerate(plan):
+        offset_x = (idx % 3) * 170 + 100
+        offset_y = (idx // 3) * 110 + 130
+        rw = min(115, int(r["w"] * 14))
+        rh = min(95, int(r["h"] * 14))
+        color = r["color"]
+        shapes_js += f"""
+        ctx.fillStyle = "{color}";
+        ctx.beginPath();
+        ctx.moveTo({offset_x}, {offset_y});
+        ctx.lineTo({offset_x} + {rw}, {offset_y} - {rh}/2);
+        ctx.lineTo({offset_x} + {rw} + {rw}, {offset_y});
+        ctx.lineTo({offset_x} + {rw}, {offset_y} + {rh}/2);
+        ctx.closePath();
+        ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        ctx.beginPath();
+        ctx.moveTo({offset_x}, {offset_y});
+        ctx.lineTo({offset_x}, {offset_y} - 40);
+        ctx.lineTo({offset_x} + {rw}, {offset_y} + {rh}/2 - 40);
+        ctx.lineTo({offset_x} + {rw}, {offset_y} + {rh}/2);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px Space Grotesk";
+        ctx.fillText("{r['name']}", {offset_x} + 15, {offset_y} - 2);
+        """
+    return f"""
+    <div class="canvas-container">
+        <canvas id="arc3dCanvas" width="{canvas_w}" height="{canvas_h}" style="max-width:100%; background:#050814;"></canvas>
+        <script>
+            const canvas = document.getElementById('arc3dCanvas'); const ctx = canvas.getContext('2d');
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.04)';
+            for(let i=0; i<canvas.width; i+=40) {{ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }}
+            for(let j=0; j<canvas.height; j+=40) {{ ctx.beginPath(); ctx.moveTo(0,j); ctx.lineTo(canvas.width, j); ctx.stroke(); }}
+            {shapes_js}
+        </script>
+    </div>
+    """
 
 def render_plotly_3d_rooms(plan):
     x, y, z = [], [], []
@@ -635,6 +636,35 @@ with st.sidebar.expander("⚖️ AI Agent Weights", expanded=False):
     weights = (w_arch, w_struct, w_sust, w_cost)
     st.caption(f"Normalised: arch {w_arch:.2f}, struct {w_struct:.2f}, sust {w_sust:.2f}, cost {w_cost:.2f}")
 
+# ── Forex Converter Widget ──────────────────────────
+with st.sidebar.expander("💱 Forex Converter", expanded=False):
+    currencies = ["USD"] + list(REGIONAL_FX.keys())
+    convert_from = st.selectbox("From", currencies, key="conv_from")
+    convert_to = st.selectbox("To", currencies, key="conv_to")
+    amount = st.number_input("Amount", min_value=0.0, value=1000.0, step=100.0)
+
+    if convert_from == convert_to:
+        result = amount
+    else:
+        if convert_from == "USD":
+            usd_value = amount
+        else:
+            usd_value = amount / REGIONAL_FX[convert_from]["rate"]
+        if convert_to == "USD":
+            result = usd_value
+        else:
+            result = usd_value * REGIONAL_FX[convert_to]["rate"]
+
+    sym_from = "$" if convert_from == "USD" else REGIONAL_FX[convert_from]["symbol"]
+    sym_to = "$" if convert_to == "USD" else REGIONAL_FX[convert_to]["symbol"]
+    st.metric(f"{sym_from} {amount:,.2f} → {sym_to} {result:,.2f}")
+
+    if convert_from != convert_to:
+        rate = REGIONAL_FX[convert_to]["rate"] / (
+            REGIONAL_FX[convert_from]["rate"] if convert_from != "USD" else 1.0
+        )
+        st.caption(f"1 {convert_from} = {rate:.4f} {convert_to}")
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📂 PROJECT MEMORY")
 if len(mem["designs"]) > 0:
@@ -670,6 +700,19 @@ if nav_page == "Control Hub Dashboard":
                 <div style="font-size: 0.7rem; color: #22c55e;">▴ {data['region']}</div>
             </div>
             """, unsafe_allow_html=True)
+
+    # Simulated FX history chart
+    with st.expander("📈 Simulated KES/USD History (60 days)", expanded=False):
+        start_rate = REGIONAL_FX["Kenya"]["rate"]
+        np.random.seed(42)
+        random_steps = np.random.normal(0, 0.008, 60)
+        rates = [start_rate]
+        for step in random_steps:
+            rates.append(rates[-1] * (1 + step))
+        fx_df = pd.DataFrame({"Day": range(len(rates)), "KES/USD": rates})
+        fig = px.line(fx_df, x="Day", y="KES/USD", title="Simulated KES/USD (random walk)")
+        fig.update_traces(line_color="#38bdf8")
+        st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
     c1, c2, c3 = st.columns(3)
@@ -837,7 +880,7 @@ elif nav_page == "Generative Design Engine":
                 st.success("Design saved to project memory!")
 
         sc_a = asset["scores"]
-        ec_a = run_eurocode_analysis(asset, asset['domain'])  # re-run for display (uses random, but acceptable)
+        ec_a = run_eurocode_analysis(asset, asset['domain'])  # re-run for display
         a1, a2, a3, a4 = st.columns(4)
         with a1:
             st.markdown(f"""
@@ -889,11 +932,25 @@ elif nav_page == "Generative Design Engine":
             st.caption(f"Total GFA: {asset['total_gfa']:,} m² | {asset['floors']} Floors | {asset['country']}")
 
             with st.expander("📊 Live Currency Bill of Quantities"):
-                # FIXED unpacking: only three values returned
+                # Random FX volatility simulation toggle
+                use_volatility = st.checkbox("📈 Simulate FX Volatility", value=False)
+                if use_volatility:
+                    volatility_pct = st.slider("Volatility %", 0.5, 10.0, 2.0) / 100
+                    # Apply noise to rates temporarily
+                    for country in REGIONAL_FX:
+                        REGIONAL_FX[country]["rate"] = simulate_random_fx(
+                            BASELINE_FX_RATES[country], volatility_pct
+                        )
+                # Compute BOQ with possibly modified rates
                 usd, local, fx = compute_forex_boq(asset, asset['country'])
                 st.metric("USD Total", f"${int(usd):,}")
                 st.metric(f"Local {fx['currency']}", f"{fx['symbol']} {int(local):,}")
-                st.caption(f"Rates based on 1 USD = {fx['rate']} {fx['currency']}")
+                st.caption(f"1 USD = {fx['rate']:.2f} {fx['currency']}")
+
+                # Reset rates to baseline after display
+                if use_volatility:
+                    for country in REGIONAL_FX:
+                        REGIONAL_FX[country]["rate"] = BASELINE_FX_RATES[country]
 
         with col_3d:
             st.markdown("### 📦 3D MASSING CONCEPT")
