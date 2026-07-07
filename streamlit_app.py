@@ -14,14 +14,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-# ── Import our domain modules ──────────────────────────
-from modules.sai_engine import (
+# ── Import our domain modules (now at root level) ────────
+from sai_engine import (
     ARCH_DOMAINS,
     generate_spatial_model,
     run_eurocode_analysis,
     calculate_ai_scores,
 )
-from modules.forex_fx import (
+from forex_fx import (
     initialize_fx_rates,
     get_fx_data,
     get_all_countries,
@@ -30,6 +30,7 @@ from modules.forex_fx import (
     simulate_random_fx,
     set_rate,
     reset_rates_to_baseline,
+    get_baseline_rate,
 )
 
 # =========================================================
@@ -729,12 +730,10 @@ elif nav_page == "Generative Design Engine":
                 use_volatility = st.checkbox("📈 Simulate FX Volatility", value=False)
                 if use_volatility:
                     volatility_pct = st.slider("Volatility %", 0.5, 10.0, 2.0) / 100
-                    # Apply random volatility
+                    # Apply random volatility to each country's rate
                     for country in get_all_countries():
-                        base_rate = get_fx_data(country)["rate"]  # original from baseline? Not quite; we need baseline
-                        # Actually we stored baseline rates in initialize, we can access them via the module's _BASELINE_RATES
-                        from modules.forex_fx import _BASELINE_RATES  # a bit hacky, better expose a function
-                        set_rate(country, simulate_random_fx(_BASELINE_RATES[country], volatility_pct))
+                        baseline = get_baseline_rate(country)
+                        set_rate(country, simulate_random_fx(baseline, volatility_pct))
                 usd, local, fx = compute_forex_boq(asset, asset['country'])
                 st.metric("USD Total", f"${int(usd):,}")
                 st.metric(f"Local {fx['currency']}", f"{fx['symbol']} {int(local):,}")
