@@ -1,5 +1,5 @@
 # =========================================================
-# ARC STUDIO PRO – ARCHITECTURAL INTELLECT & FOREX ENGINE
+# IMAGINE – ARCHITECTURAL INTELLECT & EAST AFRICAN FOREX ENGINE
 # v21.0 – Forecasting, Drift Animation, Sensitivity, Compare, IFC Export
 # Single-file Streamlit App
 # =========================================================
@@ -12,13 +12,13 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 from io import BytesIO
-import collections
-from mpl_toolkits.mplot3d import Axes3D  # ensure 3D works
+from mpl_toolkits.mplot3d import Axes3D  # needed for 3d projection
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # ------------------------------------------------------------
 # CUSTOM THEME
 # ------------------------------------------------------------
-st.set_page_config(page_title="Arc Studio Pro", page_icon="📐", layout="wide")
+st.set_page_config(page_title="Imagine", page_icon="📐", layout="wide")
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
@@ -71,7 +71,7 @@ if "authenticated" not in st.session_state:
     st.session_state.show_registration = False
 
 def login_page():
-    st.markdown("<h1 style='text-align:center'>🔐 Arc Studio Pro Login</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center'>🔐 Imagine Login</h1>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1,2,1])
     with c2:
         with st.form("login"):
@@ -285,7 +285,7 @@ def draw_2d_blueprint(design, overlay_design=None):
     return buf
 
 def draw_interactive_blueprint(design):
-    st.image(draw_2d_blueprint(design), use_column_width=True)
+    st.image(draw_2d_blueprint(design), use_container_width=True)
     layout = design["layout"]["grid"]; ny = len(layout); nx = len(layout[0]) if layout else 0
     cols = st.columns(3)
     with cols[0]:
@@ -297,20 +297,43 @@ def draw_interactive_blueprint(design):
     return design
 
 def draw_3d_isometric_view(design, drift_factor=0):
-    layout = design["layout"]["grid"]; ny = len(layout); nx = len(layout[0]) if layout else 0
+    """3D view with floor slabs and columns, fixed for streamlit."""
+    layout = design["layout"]["grid"]
+    ny = len(layout)
+    nx = len(layout[0]) if layout else 0
     floors = design["floors"]
-    fig = plt.figure(figsize=(8,6)); ax = fig.add_subplot(111, projection='3d')
-    ax.set_facecolor('none'); fig.patch.set_facecolor('#0f172a'); ax.xaxis.pane.fill = False; ax.yaxis.pane.fill = False; ax.zaxis.pane.fill = False
+
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_facecolor('none')
+    fig.patch.set_facecolor('#0f172a')
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+
     for f in range(floors):
-        z = f * 3.0; offset_x = drift_factor * math.sin(z/2)
+        z = f * 3.0
+        offset_x = drift_factor * math.sin(z / 2)
         for i in range(ny):
             for j in range(nx):
-                room = layout[i][j]; color = ROOM_COLORS.get(room, "#94a3b8")
-                x = [j+offset_x, j+1+offset_x, j+1+offset_x, j+offset_x]; y = [i, i, i+1, i+1]; zz = [z]*4
-                ax.add_collection3d(mpatches.Polygon(list(zip(x,y)), facecolor=color, alpha=0.5, edgecolor='white'))
-                for (x1,y1),(x2,y2) in [((j+offset_x,i),(j+1+offset_x,i)),((j+1+offset_x,i),(j+1+offset_x,i+1)),((j+offset_x,i+1),(j+1+offset_x,i+1)),((j+offset_x,i),(j+offset_x,i+1))]:
-                    ax.plot([x1,x2], [y1,y2], [z,z], color='white', linewidth=0.5)
-    ax.set_xlim(0, nx); ax.set_ylim(0, ny); ax.set_zlim(0, floors*3); ax.axis('off'); st.pyplot(fig)
+                room = layout[i][j]
+                color = ROOM_COLORS.get(room, "#94a3b8")
+                # Floor slab polygon
+                x = [j + offset_x, j + 1 + offset_x, j + 1 + offset_x, j + offset_x]
+                y = [i, i, i + 1, i + 1]
+                zz = [z] * 4
+                verts = [list(zip(x, y, zz))]
+                slab = Poly3DCollection(verts, facecolors=color, alpha=0.5, edgecolors='white')
+                ax.add_collection3d(slab)
+                # vertical columns at corners
+                for (cx, cy) in [(j+offset_x, i), (j+1+offset_x, i), (j+1+offset_x, i+1), (j+offset_x, i+1)]:
+                    ax.plot([cx, cx], [cy, cy], [z, z+3], color='white', linewidth=0.5)
+
+    ax.set_xlim(0, nx)
+    ax.set_ylim(0, ny)
+    ax.set_zlim(0, floors * 3)
+    ax.axis('off')
+    st.pyplot(fig)
 
 # ------------------------------------------------------------
 # IFC / REVIT JSON EXPORT
@@ -334,7 +357,7 @@ def generate_ifc_json(design):
 # SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
-    st.markdown("<h1 style='color:#38bdf8;'>ARC STUDIO PRO</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color:#38bdf8;'>IMAGINE</h1>", unsafe_allow_html=True)
     st.markdown(f"👤 {st.session_state.username} ({st.session_state.role})")
     nav = st.pills("🌐 Workspace", ["Control Hub", "Synthesis Lab"], default="Control Hub")
     st.markdown("---")
@@ -402,8 +425,10 @@ elif nav == "Synthesis Lab":
             with tabs[0]:
                 st.markdown("### Interactive 2D Blueprint")
                 d = draw_interactive_blueprint(d); st.session_state.active_design = d; save_memory(st.session_state.memory)
-            with tabs[1]: draw_3d_isometric_view(d)
-            with tabs[2]: st.json(d["analysis"])
+            with tabs[1]:
+                draw_3d_isometric_view(d)
+            with tabs[2]:
+                st.json(d["analysis"])
             with tabs[3]:
                 zon = d["zoning"]
                 st.write(f"Coverage: {zon['coverage']} (max {ARCH_DOMAINS[d['domain']]['max_coverage']}) — {'✅' if zon['coverage_ok'] else '❌'}")
@@ -455,7 +480,7 @@ elif nav == "Synthesis Lab":
                     if st.button("Compare"):
                         d1 = my_designs_list[d1_idx]; d2 = my_designs_list[d2_idx]
                         st.write("### Overlay Blueprint")
-                        st.image(draw_2d_blueprint(d1, overlay_design=d2), use_column_width=True)
+                        st.image(draw_2d_blueprint(d1, overlay_design=d2), use_container_width=True)
                         col1, col2 = st.columns(2)
                         with col1: st.metric("A GFA", d1["total_gfa"]); st.metric("A Cost USD", d1["boq"]["total_usd"]); st.metric("A Floors", d1["floors"])
                         with col2: st.metric("B GFA", d2["total_gfa"]); st.metric("B Cost USD", d2["boq"]["total_usd"]); st.metric("B Floors", d2["floors"])
