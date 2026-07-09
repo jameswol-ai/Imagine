@@ -81,7 +81,7 @@ TRANSLATIONS = {
         "top_recommendation": "🏆 TOP RECOMMENDATION: CONCEPT ALPHA (Composite Score Leader)",
         "save_library": "💾 Save to Library",
         "saved_success": "Design saved to project memory!",
-        "2d_floor_plan": "🗺️ 2D FLOOR PLAN",
+        "2d_floor_plan": "🗺️ 2D FLOOR PLAN (with Movement Paths)",
         "3d_massing": "📦 3D MASSING CONCEPT",
         "boq_expander": "📊 Live Currency Bill of Quantities",
         "volatility_check": "📈 Simulate FX Volatility",
@@ -132,6 +132,7 @@ TRANSLATIONS = {
         "floor_area_line": "Floor Area: {fa_m} m² ({fa_ft} sq ft)",
         "plot_area_caption": "= {area_ft} sq ft",
         "grid_label": "Grid: {span_m} m × {span_m} m",
+        "movement_arrows": "→ Movement flow"
     },
     "sw": {
         "sidebar_title": "ARC V3",
@@ -178,7 +179,7 @@ TRANSLATIONS = {
         "top_recommendation": "🏆 PENDEREZO KUU: DHANA ALPHA (Kiongozi wa Alama Jumuishi)",
         "save_library": "💾 Hifadhi kwenye Maktaba",
         "saved_success": "Muundo umehifadhiwa kwenye kumbukumbu ya mradi!",
-        "2d_floor_plan": "🗺️ MPANGO WA SAKAFU 2D",
+        "2d_floor_plan": "🗺️ MPANGO WA SAKAFU 2D (na Njia za Kusonga)",
         "3d_massing": "📦 DHANA YA MAJI 3D",
         "boq_expander": "📊 Bili ya Upimaji wa Fedha Moja kwa Moja",
         "volatility_check": "📈 Iga Mabadiliko ya Fedha",
@@ -229,6 +230,7 @@ TRANSLATIONS = {
         "floor_area_line": "Eneo la Sakafu: {fa_m} m² ({fa_ft} sq ft)",
         "plot_area_caption": "= {area_ft} sq ft",
         "grid_label": "Gridi: {span_m} m × {span_m} m",
+        "movement_arrows": "→ Mwelekeo wa harakati"
     }
 }
 
@@ -673,50 +675,221 @@ def plot_real_fx_with_indicators(df):
     return fig
 
 # ═══════════════════════════════════════════════════════
-# 6. RENDERERS (with unit conversions and grids)
+# 6. RENDERERS (2D floor plan with movement, 3D, etc.)
 # ═══════════════════════════════════════════════════════
-def render_native_blueprint(plan, span=6.0):
-    """2D floor plan with room cards, structural grid, and unit labels."""
-    unit_len = t("m") if st.session_state.get("unit_system") != "imperial" else t("ft")
-    # Room cards with converted dimensions
-    cards = ""
+
+def render_floorplan_diagram(plan, span=6.0):
+    """
+    Generates a Plotly figure showing a proper 2D floor plan:
+    - Rooms as filled rectangles
+    - Central corridor connecting all rooms
+    - Movement arrows from entrance through corridor to each room
+    - Grid background and unit labels
+    """
+    # Separate corridor from other rooms
+    corridor = None
+    other_rooms = []
     for room in plan:
-        w_disp, _ = to_display_length(room["w"])
-        h_disp, _ = to_display_length(room["h"])
-        cards += (
-            f'<div style="position:relative; z-index:2; padding:16px; border-radius:12px; color:#fff; '
-            f'border:1px solid rgba(255,255,255,0.08); background-color:{room["color"]}; '
-            f'box-shadow:0 8px 24px rgba(0,0,0,0.4); transition: all 0.2s ease; cursor:pointer; min-width:180px; flex:1 1 auto;" '
-            f'onmouseover="this.style.transform=\'scale(1.03)\'; this.style.boxShadow=\'0 12px 32px rgba(0,0,0,0.6)\';" '
-            f'onmouseout="this.style.transform=\'scale(1)\'; this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.4)\';">'
-            f'<div style="font-size:1rem; font-weight:600; font-family:\'Space Grotesk\';">{room["name"]}</div>'
-            f'<div style="font-size:0.8rem; opacity:0.8; margin-top:4px;">📐 {w_disp} × {h_disp} {unit_len} ({room["type"]})</div>'
-            f'</div>'
+        if room["type"] == "Corridor":
+            corridor = room
+        else:
+            other_rooms.append(room)
+    if corridor is None:
+        # fallback: use first room as corridor
+        corridor = plan[0]
+        other_rooms = plan[1:]
+
+    # Layout: corridor horizontal, rooms placed alternately above and below
+    corridor_w = corridor["w"]  # width in m
+    corridor_h = corridor["h"]  # length in m
+    # We'll treat corridor as a horizontal band of width=corridor_h (length along x)
+    # and height=corridor_w (thickness). Let's set corridor thickness = 2.5m constant.
+    corridor_length = corridor_h   # length of corridor along x
+    corridor_thickness = corridor_w  # width (height) of corridor
+
+    # Arrange other rooms to the left/right sides of corridor? Better: place them along the corridor length.
+    # We'll distribute rooms along the corridor length, alternating above/below.
+    # Each room gets a position: x = start + cumulative width, y = +offset or -offset.
+    # We'll compute room positions to fit within corridor length.
+    # Use room width (along x) and depth (along y). We'll align corridor horizontally from x=0 to x=corridor_length.
+    fig = go.Figure()
+
+    # Determine unit symbol
+    unit_len = t("m") if st.session_state.get("unit_system") != "imperial" else t("ft")
+
+    # Convert span to display unit for grid label
+    span_m = span
+
+    # Helper to draw a rectangle as a shape
+    def add_room_rect(x0, y0, x1, y1, color, name, width_m, depth_m):
+        # Convert coordinates to display units for hover
+        w_disp, _ = to_display_length(width_m)
+        d_disp, _ = to_display_length(depth_m)
+        fig.add_shape(type="rect",
+                      x0=x0, y0=y0, x1=x1, y1=y1,
+                      fillcolor=color,
+                      line=dict(color="white", width=1),
+                      opacity=0.7)
+        # Add annotation at center
+        fig.add_annotation(x=(x0+x1)/2, y=(y0+y1)/2,
+                           text=f"<b>{name}</b><br>{w_disp}×{d_disp} {unit_len}",
+                           showarrow=False,
+                           font=dict(size=10, color="white"),
+                           bgcolor="rgba(0,0,0,0.5)")
+
+    # Add grid lines (structural grid)
+    # For cleaner look, add light vertical/horizontal lines based on span
+    max_x = corridor_length + 5
+    max_y = corridor_thickness + sum([r["h"] for r in other_rooms])  # rough
+    grid_spacing = span   # in meters
+    for x in np.arange(0, max_x, grid_spacing):
+        fig.add_shape(type="line", x0=x, y0=-max_y, x1=x, y1=max_y,
+                      line=dict(color="rgba(56,189,248,0.15)", width=1), layer="below")
+    for y in np.arange(-max_y, max_y, grid_spacing):
+        fig.add_shape(type="line", x0=0, y0=y, x1=max_x, y1=y,
+                      line=dict(color="rgba(56,189,248,0.15)", width=1), layer="below")
+
+    # Draw corridor
+    add_room_rect(0, -corridor_thickness/2, corridor_length, corridor_thickness/2,
+                  corridor["color"], corridor["name"], corridor["w"], corridor["h"])
+
+    # Arrange rooms on both sides
+    # We'll assign positions: x start = 0, then sequentially place rooms along corridor.
+    # For simplicity, we place rooms at discrete intervals along corridor.
+    # Each room gets a width (along x) = its own "w" dimension, and depth (along y) = its "h" dimension.
+    # Alternate above (y positive) and below (y negative).
+    current_x = 1.0   # start a bit inside corridor
+    side = 1  # 1 for above, -1 for below
+    for room in other_rooms:
+        room_w = room["w"]  # width along x
+        room_h = room["h"]  # depth along y
+        # check if room fits in remaining corridor length
+        if current_x + room_w > corridor_length:
+            current_x = 1.0   # wrap to next row (just stack above, not ideal but works)
+            side = -side
+        y_base = side * (corridor_thickness/2 + 0.5)  # small gap
+        if side == 1:
+            y0 = y_base
+            y1 = y_base + room_h
+        else:
+            y0 = y_base - room_h
+            y1 = y_base
+        add_room_rect(current_x, y0, current_x + room_w, y1,
+                      room["color"], room["name"], room_w, room_h)
+        # Add movement arrow from corridor to room
+        mid_x = current_x + room_w/2
+        # Arrow from corridor edge to room entrance (center of closest side)
+        if side == 1:
+            arrow_start = (mid_x, corridor_thickness/2)
+            arrow_end = (mid_x, y0)
+        else:
+            arrow_start = (mid_x, -corridor_thickness/2)
+            arrow_end = (mid_x, y1)
+        fig.add_annotation(
+            x=arrow_end[0], y=arrow_end[1],
+            ax=arrow_start[0], ay=arrow_start[1],
+            xref="x", yref="y", axref="x", ayref="y",
+            text="", showarrow=True,
+            arrowhead=3, arrowsize=1, arrowwidth=2, arrowcolor="#facc15"
         )
-    # Grid CSS background
-    grid_span_m = span * 1.0  # we use a visual scale; just make grid lines every 'span' meters
-    # For simplicity, use a fixed px size for grid pattern; adjust to approximate span
-    px_per_span = 60  # arbitrary visual scaling
-    grid_label = t("grid_label", span_m=span)
-    canvas_html = (
-        f'<div class="arc-blueprint-canvas" style="position:relative; display:flex; flex-wrap:wrap; gap:14px; '
-        f'background:#0a0f1c; padding:24px; border-radius:18px; border:1px dashed #334155; '
-        f'margin:10px 0; box-shadow: inset 0 0 30px rgba(0,0,0,0.5); '
-        f'background-image: linear-gradient(rgba(56,189,248,0.08) 1px, transparent 1px), '
-        f'linear-gradient(90deg, rgba(56,189,248,0.08) 1px, transparent 1px); '
-        f'background-size: {span*10}px {span*10}px;">'
-        + cards +
-        f'<div style="position:absolute; bottom:2px; left:50%; transform:translateX(-50%); color:#38bdf8; '
-        f'font-size:10px; opacity:0.5;">{grid_label}</div>'
-        + '</div>'
+        current_x += room_w + 0.5
+        side *= -1  # alternate
+
+    # Entrance arrow (left side of corridor)
+    fig.add_annotation(
+        x=0.5, y=0,
+        ax=-1.0, ay=0,
+        xref="x", yref="y", axref="x", ayref="y",
+        text="<b>ENTRANCE</b>", showarrow=True,
+        arrowhead=3, arrowsize=1, arrowwidth=3, arrowcolor="#22c55e",
+        font=dict(color="#22c55e")
     )
-    return canvas_html
+
+    # Layout
+    fig.update_layout(
+        title=t("2d_floor_plan"),
+        xaxis=dict(visible=False, showgrid=False, zeroline=False),
+        yaxis=dict(visible=False, showgrid=False, zeroline=False, scaleanchor="x", scaleratio=1),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=20, r=20, t=40, b=20),
+        showlegend=False,
+        width=800, height=500
+    )
+    # Add grid label
+    fig.add_annotation(x=max_x-1, y=-max_y+1, text=t("grid_label", span_m=span_m),
+                       showarrow=False, font=dict(size=10, color="#38bdf8"), opacity=0.7)
+    return fig
+
+def render_plotly_3d_rooms(plan, floors=1, floor_height=3.0, span=6.0):
+    """3D massing with extruded floors and column grid lines."""
+    traces = []
+    min_x, max_x, min_y, max_y = float('inf'), -float('inf'), float('inf'), -float('inf')
+    for i, room in enumerate(plan):
+        col = i % 3
+        row = i // 3
+        xc = col * 12
+        yc = row * 10
+        min_x = min(min_x, xc - room["w"]/2)
+        max_x = max(max_x, xc + room["w"]/2)
+        min_y = min(min_y, yc - room["h"]/2)
+        max_y = max(max_y, yc + room["h"]/2)
+
+    grid_spacing = span * 2
+    for x in range(int(min_x/grid_spacing)*int(grid_spacing), int(max_x/grid_spacing+1)*int(grid_spacing)+1, int(grid_spacing)):
+        traces.append(go.Scatter3d(x=[x,x], y=[min_y, max_y], z=[0,0], mode='lines', line=dict(color='#1e293b', width=1), showlegend=False))
+    for y in range(int(min_y/grid_spacing)*int(grid_spacing), int(max_y/grid_spacing+1)*int(grid_spacing)+1, int(grid_spacing)):
+        traces.append(go.Scatter3d(x=[min_x, max_x], y=[y,y], z=[0,0], mode='lines', line=dict(color='#1e293b', width=1), showlegend=False))
+
+    for i, room in enumerate(plan):
+        col = i % 3
+        row = i // 3
+        xc = col * 12
+        yc = row * 10
+        w = room["w"]
+        d = room["h"]
+        color = room["color"]
+        for f in range(floors):
+            z_bottom = f * floor_height
+            z_top = z_bottom + floor_height * 0.9
+            x_b = [xc-w/2, xc+w/2, xc+w/2, xc-w/2, xc-w/2]
+            y_b = [yc-d/2, yc-d/2, yc+d/2, yc+d/2, yc-d/2]
+            z_b_arr = [z_bottom]*5
+            traces.append(go.Scatter3d(x=x_b, y=y_b, z=z_b_arr, mode='lines', line=dict(color=color, width=2), showlegend=False))
+            x_t = [xc-w/2, xc+w/2, xc+w/2, xc-w/2, xc-w/2]
+            y_t = [yc-d/2, yc-d/2, yc+d/2, yc+d/2, yc-d/2]
+            z_t_arr = [z_top]*5
+            traces.append(go.Scatter3d(x=x_t, y=y_t, z=z_t_arr, mode='lines', line=dict(color=color, width=2), showlegend=False))
+            for cx, cy in [(xc-w/2, yc-d/2), (xc+w/2, yc-d/2), (xc+w/2, yc+d/2), (xc-w/2, yc+d/2)]:
+                traces.append(go.Scatter3d(x=[cx, cx], y=[cy, cy], z=[z_bottom, z_top], mode='lines', line=dict(color=color, width=2), showlegend=False))
+
+    for gx in range(int(min_x/grid_spacing)*int(grid_spacing), int(max_x/grid_spacing+1)*int(grid_spacing)+1, int(grid_spacing)):
+        for gy in range(int(min_y/grid_spacing)*int(grid_spacing), int(max_y/grid_spacing+1)*int(grid_spacing)+1, int(grid_spacing)):
+            traces.append(go.Scatter3d(x=[gx,gx], y=[gy,gy], z=[0, floors*floor_height],
+                                       mode='lines', line=dict(color='#c084fc', width=2, dash='dot'),
+                                       showlegend=False))
+
+    fig = go.Figure(data=traces)
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(visible=False, showgrid=False),
+            yaxis=dict(visible=False, showgrid=False),
+            zaxis=dict(visible=False, showgrid=False),
+            bgcolor='#040711'
+        ),
+        paper_bgcolor='#040711',
+        margin=dict(l=0, r=0, b=0, t=20),
+        showlegend=False,
+        title="3D Massing with Column Grid",
+        title_font=dict(color='#94a3b8', size=14)
+    )
+    return fig
 
 def render_isometric_html(plan, span=6.0):
+    """Isometric view with grid – kept for backward compatibility."""
     canvas_w, canvas_h = 800, 380
     unit_len = t("m") if st.session_state.get("unit_system") != "imperial" else t("ft")
     shapes_js = f"""
-    // ground grid
     ctx.strokeStyle = 'rgba(56,189,248,0.1)';
     ctx.lineWidth = 1;
     const step = {span*2};
@@ -771,73 +944,6 @@ def render_isometric_html(plan, span=6.0):
         <div style="text-align:center; color:#38bdf8; font-size:10px; opacity:0.5;">{grid_label}</div>
     </div>
     """
-
-def render_plotly_3d_rooms(plan, floors=1, floor_height=3.0, span=6.0):
-    """3D massing with extruded floors and column grid lines."""
-    traces = []
-    min_x, max_x, min_y, max_y = float('inf'), -float('inf'), float('inf'), -float('inf')
-    for i, room in enumerate(plan):
-        col = i % 3
-        row = i // 3
-        xc = col * 12
-        yc = row * 10
-        min_x = min(min_x, xc - room["w"]/2)
-        max_x = max(max_x, xc + room["w"]/2)
-        min_y = min(min_y, yc - room["h"]/2)
-        max_y = max(max_y, yc + room["h"]/2)
-
-    grid_spacing = span * 2
-    # Ground grid
-    for x in range(int(min_x/grid_spacing)*int(grid_spacing), int(max_x/grid_spacing+1)*int(grid_spacing)+1, int(grid_spacing)):
-        traces.append(go.Scatter3d(x=[x,x], y=[min_y, max_y], z=[0,0], mode='lines', line=dict(color='#1e293b', width=1), showlegend=False))
-    for y in range(int(min_y/grid_spacing)*int(grid_spacing), int(max_y/grid_spacing+1)*int(grid_spacing)+1, int(grid_spacing)):
-        traces.append(go.Scatter3d(x=[min_x, max_x], y=[y,y], z=[0,0], mode='lines', line=dict(color='#1e293b', width=1), showlegend=False))
-
-    # Room blocks
-    for i, room in enumerate(plan):
-        col = i % 3
-        row = i // 3
-        xc = col * 12
-        yc = row * 10
-        w = room["w"]
-        d = room["h"]
-        color = room["color"]
-        for f in range(floors):
-            z_bottom = f * floor_height
-            z_top = z_bottom + floor_height * 0.9
-            x_b = [xc-w/2, xc+w/2, xc+w/2, xc-w/2, xc-w/2]
-            y_b = [yc-d/2, yc-d/2, yc+d/2, yc+d/2, yc-d/2]
-            z_b_arr = [z_bottom]*5
-            traces.append(go.Scatter3d(x=x_b, y=y_b, z=z_b_arr, mode='lines', line=dict(color=color, width=2), showlegend=False))
-            x_t = [xc-w/2, xc+w/2, xc+w/2, xc-w/2, xc-w/2]
-            y_t = [yc-d/2, yc-d/2, yc+d/2, yc+d/2, yc-d/2]
-            z_t_arr = [z_top]*5
-            traces.append(go.Scatter3d(x=x_t, y=y_t, z=z_t_arr, mode='lines', line=dict(color=color, width=2), showlegend=False))
-            for cx, cy in [(xc-w/2, yc-d/2), (xc+w/2, yc-d/2), (xc+w/2, yc+d/2), (xc-w/2, yc+d/2)]:
-                traces.append(go.Scatter3d(x=[cx, cx], y=[cy, cy], z=[z_bottom, z_top], mode='lines', line=dict(color=color, width=2), showlegend=False))
-
-    # Column lines at grid intersections
-    for gx in range(int(min_x/grid_spacing)*int(grid_spacing), int(max_x/grid_spacing+1)*int(grid_spacing)+1, int(grid_spacing)):
-        for gy in range(int(min_y/grid_spacing)*int(grid_spacing), int(max_y/grid_spacing+1)*int(grid_spacing)+1, int(grid_spacing)):
-            traces.append(go.Scatter3d(x=[gx,gx], y=[gy,gy], z=[0, floors*floor_height],
-                                       mode='lines', line=dict(color='#c084fc', width=2, dash='dot'),
-                                       showlegend=False))
-
-    fig = go.Figure(data=traces)
-    fig.update_layout(
-        scene=dict(
-            xaxis=dict(visible=False, showgrid=False),
-            yaxis=dict(visible=False, showgrid=False),
-            zaxis=dict(visible=False, showgrid=False),
-            bgcolor='#040711'
-        ),
-        paper_bgcolor='#040711',
-        margin=dict(l=0, r=0, b=0, t=20),
-        showlegend=False,
-        title="3D Massing with Column Grid",
-        title_font=dict(color='#94a3b8', size=14)
-    )
-    return fig
 
 def get_boq_table(asset):
     gfa = asset["total_gfa"]
@@ -952,7 +1058,7 @@ if "logged_in" not in st.session_state:
     st.session_state.active_design = None
     st.session_state.lang = "en"
     st.session_state.ai_boost = 0
-    st.session_state.unit_system = "metric"   # default metric
+    st.session_state.unit_system = "metric"
 
 if not load_users():
     create_user("admin", "admin123", role="admin")
@@ -1026,7 +1132,6 @@ with st.sidebar:
     lang_option = st.selectbox("🌐 Language", ["English", "Kiswahili"], index=0)
     st.session_state.lang = "en" if lang_option == "English" else "sw"
 
-    # Unit system selector
     unit_option = st.selectbox(t("unit_system"), [t("metric"), t("imperial")])
     st.session_state.unit_system = "metric" if unit_option == t("metric") else "imperial"
 
@@ -1052,7 +1157,6 @@ with st.sidebar:
         select_domain = st.selectbox(t("select_domain"), list(ARCH_DOMAINS.keys()))
         select_type = st.selectbox(t("select_type"), ARCH_DOMAINS[select_domain])
         input_plot = st.slider(t("plot_area"), 200, 5000, 800, step=50)
-        # Show converted area caption
         if st.session_state.unit_system == "imperial":
             area_ft = round(input_plot * M2_TO_FT2, 0)
             st.caption(t("plot_area_caption", area_ft=area_ft))
@@ -1184,7 +1288,7 @@ if nav_page == t("dashboard"):
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════
-# 12. GENERATIVE ENGINE PAGE (with tabs, units, grids)
+# 12. GENERATIVE ENGINE PAGE (with tabs, real floor plans, movement)
 # ═══════════════════════════════════════════════════════
 elif nav_page == t("generative"):
     st.markdown(f"""
@@ -1252,7 +1356,9 @@ elif nav_page == t("generative"):
                 col1, col2 = st.columns([3, 2])
                 with col1:
                     st.markdown(f"### {t('2d_floor_plan')}")
-                    st.markdown(render_native_blueprint(c["plan"], span=c["structural"]["span"]), unsafe_allow_html=True)
+                    # REAL FLOOR PLAN DIAGRAM with movement
+                    floorplan_fig = render_floorplan_diagram(c["plan"], span=c["structural"]["span"])
+                    st.plotly_chart(floorplan_fig, use_container_width=True, key=f"floorplan_{idx}")
                     fa_m = c["floor_area"]
                     fa_ft = round(fa_m * M2_TO_FT2, 1)
                     gfa_m = c["total_gfa"]
@@ -1314,7 +1420,7 @@ elif nav_page == t("generative"):
             )
             st.plotly_chart(fig_radar, use_container_width=True, key="radar_chart")
 
-        # Top recommendation
+        # Top recommendation (Alpha)
         asset = st.session_state.generated_concepts[0]
         st.markdown("---")
         st.markdown(f"### {t('top_recommendation')}")
