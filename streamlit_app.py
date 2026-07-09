@@ -101,6 +101,10 @@ TRANSLATIONS = {
         "interactive_3d": "Interactive 3D Rooms",
         "rate_caption": "1 USD = {rate} {currency}",
         "conversion_caption": "1 {from_curr} = {rate} {to_curr}",
+        "refresh_fx": "🔄 Refresh Live Rates",
+        "material_breakdown": "🧱 Material Breakdown",
+        "export_csv": "📥 Export All Concepts as CSV",
+        "description_prefix": "Design brief:"
     },
     "sw": {
         "sidebar_title": "RANDOM V3",
@@ -181,6 +185,10 @@ TRANSLATIONS = {
         "interactive_3d": "Vyumba vya 3D vya Kuingiliana",
         "rate_caption": "1 USD = {rate} {currency}",
         "conversion_caption": "1 {from_curr} = {rate} {to_curr}",
+        "refresh_fx": "🔄 Sasisha Viwango vya Moja kwa Moja",
+        "material_breakdown": "🧱 Uchambuzi wa Vifaa",
+        "export_csv": "📥 Hamisha Dhana Zote kama CSV",
+        "description_prefix": "Muhtasari:"
     }
 }
 
@@ -302,7 +310,7 @@ def log_event(username: str, memory: dict, msg: str):
     save_memory(username, memory)
 
 # ═══════════════════════════════════════════════════════
-# 3. SAI ENGINE FUNCTIONS (unchanged from original)
+# 3. SAI ENGINE FUNCTIONS
 # ═══════════════════════════════════════════════════════
 ARCH_DOMAINS = {
     "Residential": ["Luxury Villa", "Modern Apartment", "Townhouse Studio"],
@@ -416,7 +424,7 @@ def calculate_ai_scores(asset, ec_result, total_usd, prompt_keywords=None, weigh
     return arch_score, struct_score, sustain_score, cost_score, composite
 
 # ═══════════════════════════════════════════════════════
-# 4. FOREX MODULE (unchanged)
+# 4. FOREX MODULE
 # ═══════════════════════════════════════════════════════
 STATIC_FX_RATES = {
     "Kenya":       129.49,
@@ -625,13 +633,13 @@ def plot_real_fx_with_indicators(df):
     return fig
 
 # ═══════════════════════════════════════════════════════
-# 6. RENDERERS (unchanged)
+# 6. RENDERERS
 # ═══════════════════════════════════════════════════════
 def render_native_blueprint(plan):
-    canvas_html = '<div class="arc-blueprint-canvas" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; background:#0a0f1c; padding:24px; border-radius:18px; border:1px dashed #334155; margin:10px 0; box-shadow: inset 0 0 30px rgba(0,0,0,0.5);">'
+    canvas_html = '<div class="arc-blueprint-canvas" style="display:flex; flex-wrap:wrap; gap:14px; background:#0a0f1c; padding:24px; border-radius:18px; border:1px dashed #334155; margin:10px 0; box-shadow: inset 0 0 30px rgba(0,0,0,0.5);">'
     for room in plan:
         canvas_html += (
-            f'<div style="padding:16px; border-radius:12px; color:#fff; border:1px solid rgba(255,255,255,0.08); background-color:{room["color"]}; box-shadow:0 8px 24px rgba(0,0,0,0.4); transition: all 0.2s ease; cursor:pointer;" '
+            f'<div style="padding:16px; border-radius:12px; color:#fff; border:1px solid rgba(255,255,255,0.08); background-color:{room["color"]}; box-shadow:0 8px 24px rgba(0,0,0,0.4); transition: all 0.2s ease; cursor:pointer; min-width:180px; flex:1 1 auto;" '
             f'onmouseover="this.style.transform=\'scale(1.03)\'; this.style.boxShadow=\'0 12px 32px rgba(0,0,0,0.6)\';" '
             f'onmouseout="this.style.transform=\'scale(1)\'; this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.4)\';">'
             f'<div style="font-size:1rem; font-weight:600; font-family:\'Space Grotesk\';">{room["name"]}</div>'
@@ -682,8 +690,25 @@ def render_isometric_html(plan):
     </div>
     """
 
-def render_plotly_3d_rooms(plan):
-    x, y, z = [], [], []
+def render_plotly_3d_rooms(plan, floors=1, floor_height=3.0):
+    """3D massing with extruded floors."""
+    traces = []
+    # Draw ground plane grid lines
+    max_x = 0
+    max_y = 0
+    for i, room in enumerate(plan):
+        col = i % 3
+        row = i // 3
+        xc = col * 12
+        yc = row * 10
+        max_x = max(max_x, abs(xc + room["w"]/2))
+        max_y = max(max_y, abs(yc + room["h"]/2))
+    # grid lines
+    for g in range(0, int(max_x)+2, 6):
+        traces.append(go.Scatter3d(x=[g,g], y=[-max_y, max_y], z=[0,0], mode='lines', line=dict(color='#1e293b', width=1), showlegend=False))
+    for g in range(0, int(max_y)+2, 5):
+        traces.append(go.Scatter3d(x=[-max_x, max_x], y=[g,g], z=[0,0], mode='lines', line=dict(color='#1e293b', width=1), showlegend=False))
+
     for i, room in enumerate(plan):
         col = i % 3
         row = i // 3
@@ -691,36 +716,74 @@ def render_plotly_3d_rooms(plan):
         yc = row * 10
         w = room["w"]
         d = room["h"]
-        x.extend([xc - w/2, xc + w/2, xc + w/2, xc - w/2, None])
-        y.extend([yc - d/2, yc - d/2, yc + d/2, yc + d/2, None])
-        z.extend([0,0,0,0,None])
-    fig = go.Figure(data=[go.Scatter3d(x=x, y=y, z=z, mode='lines', line=dict(color='white', width=2), hoverinfo='none')])
-    for i, room in enumerate(plan):
-        col = i % 3
-        row = i // 3
-        xc = col * 12
-        yc = row * 10
-        w = room["w"]
-        d = room["h"]
-        fig.add_trace(go.Mesh3d(
-            x=[xc-w/2, xc+w/2, xc+w/2, xc-w/2],
-            y=[yc-d/2, yc-d/2, yc+d/2, yc+d/2],
-            z=[0,0,0,0],
-            color=room["color"],
-            opacity=0.7,
-            flatshading=True,
-            hoverinfo='text',
-            text=room["name"]
-        ))
+        color = room["color"]
+        # For each floor, draw a wireframe cube
+        for f in range(floors):
+            z_bottom = f * floor_height
+            z_top = z_bottom + floor_height * 0.9
+            # bottom face vertices
+            x_b = [xc-w/2, xc+w/2, xc+w/2, xc-w/2, xc-w/2]
+            y_b = [yc-d/2, yc-d/2, yc+d/2, yc+d/2, yc-d/2]
+            z_b_arr = [z_bottom]*5
+            traces.append(go.Scatter3d(x=x_b, y=y_b, z=z_b_arr, mode='lines', line=dict(color=color, width=2), showlegend=False))
+            # top face
+            x_t = [xc-w/2, xc+w/2, xc+w/2, xc-w/2, xc-w/2]
+            y_t = [yc-d/2, yc-d/2, yc+d/2, yc+d/2, yc-d/2]
+            z_t_arr = [z_top]*5
+            traces.append(go.Scatter3d(x=x_t, y=y_t, z=z_t_arr, mode='lines', line=dict(color=color, width=2), showlegend=False))
+            # vertical edges
+            for cx, cy in [(xc-w/2, yc-d/2), (xc+w/2, yc-d/2), (xc+w/2, yc+d/2), (xc-w/2, yc+d/2)]:
+                traces.append(go.Scatter3d(x=[cx, cx], y=[cy, cy], z=[z_bottom, z_top], mode='lines', line=dict(color=color, width=2), showlegend=False))
+    fig = go.Figure(data=traces)
     fig.update_layout(
-        scene=dict(xaxis=dict(visible=False, showgrid=False), yaxis=dict(visible=False, showgrid=False), zaxis=dict(visible=False, showgrid=False), bgcolor='#040711'),
+        scene=dict(
+            xaxis=dict(visible=False, showgrid=False),
+            yaxis=dict(visible=False, showgrid=False),
+            zaxis=dict(visible=False, showgrid=False),
+            bgcolor='#040711'
+        ),
         paper_bgcolor='#040711',
         margin=dict(l=0, r=0, b=0, t=20),
         showlegend=False,
-        title="3D Room Layout (Interactive)",
+        title="3D Massing Concept",
         title_font=dict(color='#94a3b8', size=14)
     )
     return fig
+
+def get_boq_table(asset):
+    """Return a DataFrame of the bill of quantities items."""
+    gfa = asset["total_gfa"]
+    fx = asset["fx"]
+    multiplier = fx["multiplier"]
+    items = [
+        ("Substructure Excavations", int(gfa*0.15), 150),
+        ("C30 Concrete (m³)", int(gfa*0.35), 210),
+        ("Steel Rebar (kg)", int(gfa*0.35*0.12), 1200),
+        ("Blockwork (units)", int(gfa*38), 2.5),
+        ("Floor Finishes (m²)", int(gfa), 40),
+        ("Doors", asset["doors"], 300),
+        ("Windows", asset["windows"], 450)
+    ]
+    rows = []
+    for desc, qty, unit_usd in items:
+        adj_rate = unit_usd * multiplier
+        usd_total = qty * adj_rate
+        local_total = usd_total * fx["rate"]
+        rows.append({
+            "Item": desc,
+            "Qty": qty,
+            "Unit (USD)": f"${adj_rate:,.2f}",
+            "Total USD": f"${usd_total:,.0f}",
+            f"Total {fx['currency']}": f"{fx['symbol']} {local_total:,.0f}"
+        })
+    return pd.DataFrame(rows)
+
+def describe_concept(asset):
+    """Auto-generated design brief."""
+    if st.session_state.get("lang","en") == "sw":
+        return f"{asset['type']} ya ghorofa {asset['floors']} yenye vyumba {len(asset['plan'])} nchini {asset['country']}. Ukubwa wa jumla: {asset['total_gfa']:,} m²."
+    else:
+        return f"{asset['type']}, {asset['floors']}-storey, {len(asset['plan'])} rooms, located in {asset['country']}. Total GFA: {asset['total_gfa']:,} m²."
 
 # ═══════════════════════════════════════════════════════
 # 7. GALAXY THEME CSS
@@ -832,6 +895,26 @@ h1, h2, h3, h4, h5, h6 {
     border-color: #a78bfa;
     box-shadow: 0 0 12px rgba(139,92,246,0.3);
 }
+
+/* Override default Streamlit widgets for dark theme */
+.stTextInput > div > div > input,
+.stNumberInput input,
+.stSelectbox select,
+.stTextArea textarea {
+    background-color: rgba(15,23,42,0.8) !important;
+    color: #e0e7ff !important;
+    border-color: rgba(139,92,246,0.4) !important;
+}
+.stSlider > div > div > div {
+    background: #8b5cf6 !important;
+}
+div[data-baseweb="radio"] label,
+div[data-baseweb="checkbox"] label {
+    color: #c7d2fe !important;
+}
+.stDataFrame {
+    background: rgba(15,23,42,0.5);
+}
 </style>
 """
 st.set_page_config(page_title="ARC – Sai Engine", page_icon="🌌", layout="wide", initial_sidebar_state="expanded")
@@ -850,7 +933,6 @@ if "logged_in" not in st.session_state:
     st.session_state.lang = "en"
     st.session_state.ai_boost = 0
 
-# Auto‑create admin if no users
 if not load_users():
     create_user("admin", "admin123", role="admin")
 
@@ -942,7 +1024,7 @@ with st.sidebar:
                 else:
                     cols[1].write("you")
 
-    # Config (unchanged)
+    # Config
     with st.expander(t("arc_config"), expanded=True):
         select_country = st.selectbox(t("select_country"), get_all_countries())
         select_domain = st.selectbox(t("select_domain"), list(ARCH_DOMAINS.keys()))
@@ -962,8 +1044,11 @@ with st.sidebar:
         weights = (w_arch, w_struct, w_sust, w_cost)
         st.caption(f"Normalised: arch {w_arch:.2f}, struct {w_struct:.2f}, sust {w_sust:.2f}, cost {w_cost:.2f}")
 
-    # Forex converter
+    # Forex converter with live refresh
     with st.expander(t("forex_converter"), expanded=False):
+        if st.button(t("refresh_fx"), use_container_width=True):
+            initialize_fx_rates()
+            st.rerun()
         currencies = ["USD"] + get_all_countries()
         convert_from = st.selectbox(t("from"), currencies, key="conv_from")
         convert_to = st.selectbox(t("to"), currencies, key="conv_to")
@@ -1082,7 +1167,7 @@ if nav_page == t("dashboard"):
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════
-# 12. GENERATIVE ENGINE PAGE
+# 12. GENERATIVE ENGINE PAGE (with improved tabs)
 # ═══════════════════════════════════════════════════════
 elif nav_page == t("generative"):
     st.markdown(f"""
@@ -1132,9 +1217,8 @@ elif nav_page == t("generative"):
             st.session_state.generated_concepts = concepts
             st.session_state.active_design = concepts[0]
             log_event(username, mem, f"Sai Engine spawned 5 new architectural concepts. Alpha: {concepts[0]['id']}")
-            # Award XP
             leveled_up = add_xp(username, 20)
-            st.session_state.user_data = get_user(username)  # refresh
+            st.session_state.user_data = get_user(username)
             if leveled_up:
                 st.balloons()
 
@@ -1146,26 +1230,56 @@ elif nav_page == t("generative"):
 
         concept_names = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
         concept_colors = ["#4ade80", "#eab308", "#3b82f6", "#8b5cf6", "#ec4899"]
-        cols = st.columns(5)
-        for i, c in enumerate(st.session_state.generated_concepts[:5]):
-            with cols[i]:
-                sc = c["scores"]
-                st.markdown(f"""
-                <div class="glass-panel" style="padding: 16px; border-left: 4px solid {concept_colors[i]}; text-align: center;">
-                    <div style="font-weight: 600; color: {concept_colors[i]}; font-size: 1.1rem;">{concept_names[i]}</div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">{c['type']}</div>
-                    <div style="font-size: 0.75rem; text-align: left; margin-top: 5px; color: #94a3b8;">🏛️ Arch {sc['arch']}%</div>
-                    <div class="metric-bar-bg"><div class="metric-bar-fg" style="width: {sc['arch']}%; background: {concept_colors[i]};"></div></div>
-                    <div style="font-size: 0.75rem; text-align: left; margin-top: 5px; color: #94a3b8;">⚙️ Struct {sc['struct']}%</div>
-                    <div class="metric-bar-bg"><div class="metric-bar-fg" style="width: {sc['struct']}%; background: #00d2ff;"></div></div>
-                    <div style="font-size: 0.75rem; text-align: left; margin-top: 5px; color: #94a3b8;">🌱 Sustain {sc['sust']}%</div>
-                    <div class="metric-bar-bg"><div class="metric-bar-fg" style="width: {sc['sust']}%; background: #38bdf8;"></div></div>
-                    <div style="font-size: 0.75rem; text-align: left; margin-top: 5px; color: #94a3b8;">💰 Cost {sc['cost']}%</div>
-                    <div class="metric-bar-bg"><div class="metric-bar-fg" style="width: {sc['cost']}%; background: #facc15;"></div></div>
-                </div>
-                """, unsafe_allow_html=True)
 
-        with st.expander(t("radar_title"), expanded=True):
+        # Tabbed view for concepts
+        tabs = st.tabs(concept_names[:len(st.session_state.generated_concepts)])
+        for idx, (tab, c) in enumerate(zip(tabs, st.session_state.generated_concepts)):
+            with tab:
+                sc = c["scores"]
+                # Design brief
+                st.markdown(f"**{t('description_prefix')}** {describe_concept(c)}")
+                col1, col2 = st.columns([3, 2])
+                with col1:
+                    # 2D plan
+                    st.markdown(f"### {t('2d_floor_plan')}")
+                    st.markdown(render_native_blueprint(c["plan"]), unsafe_allow_html=True)
+                    st.caption(f"{t('gfa_label')} {c['total_gfa']:,} m² | {c['floors']} {t('floors_label')} | {c['country']}")
+                    # Material breakdown table
+                    with st.expander(t("material_breakdown"), expanded=False):
+                        st.dataframe(get_boq_table(c), use_container_width=True, hide_index=True)
+                with col2:
+                    # AI score bars
+                    for label_key, key, bar_color in [
+                        ('arch_ai', 'arch', '#4ade80'),
+                        ('struct_ai', 'struct', '#00d2ff'),
+                        ('sust_ai', 'sust', '#38bdf8'),
+                        ('cost_ai', 'cost', '#facc15')
+                    ]:
+                        st.markdown(f"""
+                        <div style="margin-bottom:8px;">
+                            <div style="display:flex; align-items:center; margin-bottom:4px;">
+                                <span style="font-size:12px; width:80px; color:#94a3b8;">{t(label_key)}</span>
+                                <div style="flex:1; height:6px; background:#1e293b; border-radius:3px;">
+                                    <div style="width:{sc[key]}%; height:100%; background:{bar_color}; border-radius:3px;"></div>
+                                </div>
+                                <span style="font-size:12px; margin-left:8px; color:{bar_color};">{sc[key]}%</span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    # Cost summary
+                    st.metric(t('usd_total'), f"${c['total_usd']:,.0f}")
+                    st.metric(f"{t('local_currency')} {c['fx']['currency']}", f"{c['fx']['symbol']} {c['total_local']:,.0f}")
+                    # 3D view
+                    st.markdown(f"### {t('3d_massing')}")
+                    view_mode = st.radio(t("view_mode_3d"), [t("isometric"), t("interactive_3d")], horizontal=True, key=f"3d_{idx}")
+                    if view_mode == t("isometric"):
+                        st.components.v1.html(render_isometric_html(c["plan"]), height=400)
+                    else:
+                        fig3d = render_plotly_3d_rooms(c["plan"], floors=c["floors"])
+                        st.plotly_chart(fig3d, use_container_width=True, key=f"3d_chart_{idx}")
+
+        # Radar comparison across all concepts
+        with st.expander(t("radar_title"), expanded=False):
             radar_data = []
             for i, c in enumerate(st.session_state.generated_concepts[:5]):
                 sc = c["scores"]
@@ -1190,10 +1304,10 @@ elif nav_page == t("generative"):
             )
             st.plotly_chart(fig_radar, use_container_width=True, key="radar_chart")
 
-        # Top recommendation
+        # Top recommendation details (Alpha)
+        asset = st.session_state.generated_concepts[0]
         st.markdown("---")
         st.markdown(f"### {t('top_recommendation')}")
-        asset = st.session_state.generated_concepts[0]
         col_detail, col_save = st.columns([3,1])
         with col_save:
             if st.button(t("save_library"), use_container_width=True):
@@ -1250,44 +1364,34 @@ elif nav_page == t("generative"):
             </div>
             """, unsafe_allow_html=True)
 
-        # 2D & 3D Layout
+        # Gantt & Export
         st.markdown("---")
-        col_2d, col_3d = st.columns(2)
-        with col_2d:
-            st.markdown(f"### {t('2d_floor_plan')}")
-            st.markdown(render_native_blueprint(asset["plan"]), unsafe_allow_html=True)
-            st.caption(f"{t('gfa_label')} {asset['total_gfa']:,} m² | {asset['floors']} {t('floors_label')} | {asset['country']}")
-            with st.expander(t("boq_expander")):
-                use_volatility = st.checkbox(t("volatility_check"), value=False)
-                if use_volatility:
-                    volatility_pct = st.slider(t("volatility_slider"), 0.5, 10.0, 2.0) / 100
-                    for country in get_all_countries():
-                        baseline = get_baseline_rate(country)
-                        set_rate(country, simulate_random_fx(baseline, volatility_pct))
-                usd, local, fx = compute_forex_boq(asset, asset['country'])
-                st.metric(t("usd_total"), f"${int(usd):,}")
-                st.metric(f"{t('local_currency')} {fx['currency']}", f"{fx['symbol']} {int(local):,}")
-                st.caption(t("rate_caption", rate=f"{fx['rate']:.2f}", currency=fx['currency']))
-                if use_volatility:
-                    reset_rates_to_baseline()
-        with col_3d:
-            st.markdown(f"### {t('3d_massing')}")
-            view_mode = st.radio(t("view_mode_3d"), [t("isometric"), t("interactive_3d")], horizontal=True)
-            if view_mode == t("isometric"):
-                st.components.v1.html(render_isometric_html(asset["plan"]), height=450)
-            else:
-                fig3d = render_plotly_3d_rooms(asset["plan"])
-                st.plotly_chart(fig3d, use_container_width=True, key="3d_rooms_chart")
-
-        # Gantt Chart
-        with st.expander(t("gantt_expander"), expanded=False):
-            fig_gantt = generate_gantt_chart(asset)
-            st.plotly_chart(fig_gantt, use_container_width=True, key="gantt_chart")
-
-        # Export report
-        st.markdown("---")
-        col_exp1, col_exp2 = st.columns(2)
-        with col_exp1:
+        col_gantt, col_export = st.columns([2,1])
+        with col_gantt:
+            with st.expander(t("gantt_expander"), expanded=False):
+                fig_gantt = generate_gantt_chart(asset)
+                st.plotly_chart(fig_gantt, use_container_width=True, key="gantt_chart")
+        with col_export:
+            # CSV export all concepts
+            st.markdown(f"### {t('export_csv')}")
+            export_df = pd.DataFrame([{
+                "ID": c["id"],
+                "Type": c["type"],
+                "Country": c["country"],
+                "GFA": c["total_gfa"],
+                "Floors": c["floors"],
+                "Rooms": len(c["plan"]),
+                "Cost USD": c["total_usd"],
+                f"Cost {c['fx']['currency']}": c["total_local"],
+                "Arch%": c["scores"]["arch"],
+                "Struct%": c["scores"]["struct"],
+                "Sustain%": c["scores"]["sust"],
+                "CostEff%": c["scores"]["cost"],
+                "Composite": c["scores"]["composite"]
+            } for c in st.session_state.generated_concepts])
+            csv = export_df.to_csv(index=False).encode()
+            st.download_button(t("export_csv"), data=csv, file_name="arc_all_concepts.csv", mime="text/csv", use_container_width=True)
+            # Original markdown report
             report_str = f"# ARC Design Report\n\n"
             report_str += f"**Concept Alpha** | {asset['type']} | {asset['country']}\n\n"
             report_str += f"- GFA: {asset['total_gfa']} m²\n"
