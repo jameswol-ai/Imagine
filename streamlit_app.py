@@ -1,6 +1,6 @@
 # =========================================================
 # IMAGINE – Architectural Intellect & East African Forex Engine
-# v21.6 – Polished UI, Database Migration, Clean Login
+# v21.8 – Black Edition, Imaginative Logo, Minimal UI
 # =========================================================
 
 import streamlit as st
@@ -15,75 +15,84 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # ------------------------------------------------------------
-# CUSTOM THEME
+# CUSTOM THEME – Pure Black, Minimal Highlights
 # ------------------------------------------------------------
 st.set_page_config(page_title="Imagine", page_icon="🏛️", layout="wide")
 st.markdown("""
 <style>
-    .stApp { background: linear-gradient(135deg, #0a0f1c 0%, #121a2b 100%); color: #e2e8f0; }
-    .stSidebar { background: #121a2b; border-right: 1px solid #3b82f6; }
-    h1,h2,h3,h4,h5,h6 { color: #60a5fa !important; font-weight: 600; }
-    .stMetric { background: rgba(59,130,246,0.1); border-radius:12px; padding:10px; border:1px solid #3b82f6; }
-    .stButton button { background:#3b82f6; color:white; font-weight:bold; border-radius:8px; border:none; }
-    .stButton button:hover { background:#2563eb; color:white; }
-    .stTabs [data-baseweb="tab"] { background:#121a2b; border-radius:8px 8px 0 0; color:#94a3b8; }
-    .stTabs [aria-selected="true"] { background:#3b82f6 !important; color:white !important; }
-    .login-box {
-        background: rgba(18,26,43,0.95);
-        padding: 2rem;
-        border-radius: 20px;
-        box-shadow: 0 0 20px rgba(59,130,246,0.3);
-        border: 1px solid #3b82f6;
+    .stApp { background: #000000; color: #dddddd; }
+    .stSidebar { background: #111111; border-right: 1px solid #333333; }
+    h1,h2,h3,h4,h5,h6 { color: #cccccc !important; font-weight: 600; }
+    .stMetric { background: rgba(80,80,80,0.15); border-radius:8px; padding:10px; border:1px solid #444; color:#eee; }
+    .stButton button {
+        background: #222; color: #ddd; font-weight:bold; border-radius:6px;
+        border: 1px solid #555;
     }
-    .logo-container { text-align: center; margin-bottom: 1rem; }
+    .stButton button:hover { background:#333; color:white; border-color:#777; }
+    .stTabs [data-baseweb="tab"] {
+        background: transparent; border-radius:0; border-bottom:2px solid transparent;
+        color: #999; padding: 0.5rem 1rem;
+    }
+    .stTabs [aria-selected="true"] {
+        background: transparent !important; border-bottom:2px solid #ccc;
+        color: #eee !important;
+    }
+    .login-box {
+        background: #111111; padding: 2rem; border-radius: 12px;
+        border: 1px solid #333; max-width: 400px; margin: 4rem auto;
+        box-shadow: none;
+    }
+    .logo-container { text-align: center; margin-bottom: 1.5rem; }
+    /* Remove glows and bright borders */
+    .stApp, .stSidebar { box-shadow: none; }
+    .stMetric { box-shadow: none; }
 </style>""", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# LOGO – "Imagine" (I capital, rest lowercase), no extra graphic
+# IMAGINATIVE LOGO – Architectural compass + minimal wordmark
 # ------------------------------------------------------------
 LOGO_SVG = """
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80" width="240" height="64">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#888"/>
+      <stop offset="100%" stop-color="#ccc"/>
     </linearGradient>
   </defs>
-  <text x="150" y="55" dominant-baseline="middle" text-anchor="middle"
-        font-family="'Segoe UI', Arial, sans-serif" font-weight="700" font-size="38"
-        fill="url(#grad)" letter-spacing="2">Imagine</text>
-  <!-- Subtle underline -->
-  <line x1="80" y1="68" x2="220" y2="68" stroke="#3b82f6" stroke-width="1.5" opacity="0.7"/>
+  <!-- Compass mark -->
+  <g transform="translate(130,25)">
+    <circle cx="0" cy="0" r="16" stroke="url(#lg)" stroke-width="2" fill="none"/>
+    <line x1="0" y1="-14" x2="0" y2="14" stroke="url(#lg)" stroke-width="2"/>
+    <line x1="-14" y1="0" x2="14" y2="0" stroke="url(#lg)" stroke-width="2"/>
+    <polygon points="0,-12 3,0 0,12 -3,0" fill="url(#lg)"/>
+    <circle cx="0" cy="0" r="4" fill="#000"/>
+  </g>
+  <text x="150" y="65" text-anchor="middle"
+        font-family="'Segoe UI', Arial, sans-serif" font-weight="400" font-size="28"
+        fill="url(#lg)" letter-spacing="6">Imagine</text>
 </svg>
 """
 
 # ------------------------------------------------------------
-# DATABASE MIGRATION & AUTH
+# DATABASE MIGRATION & AUTH (unchanged)
 # ------------------------------------------------------------
 USER_DB = Path("arc_users.db")
 
 def init_user_db():
     conn = sqlite3.connect(USER_DB)
     c = conn.cursor()
-    # Create table if not exists (original columns)
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (username TEXT PRIMARY KEY,
                   password_hash TEXT NOT NULL,
                   role TEXT DEFAULT 'user',
                   email TEXT DEFAULT '')''')
-    # Ensure the 'salt' column exists (migration from older versions)
     try:
         c.execute("SELECT salt FROM users LIMIT 1")
     except sqlite3.OperationalError:
-        # Column doesn't exist – add it and set default for existing accounts
         c.execute("ALTER TABLE users ADD COLUMN salt TEXT NOT NULL DEFAULT 'legacy_no_salt'")
-        # For the existing admin user (if present), the salt remains 'legacy_no_salt'
         conn.commit()
-
-    # Create default admin if no users exist
     c.execute("SELECT COUNT(*) FROM users")
     if c.fetchone()[0] == 0:
-        # New admin with proper salt
         salt = uuid.uuid4().hex
         admin_hash = hash_password("admin123", salt)
         c.execute("INSERT INTO users (username, password_hash, salt, role, email) VALUES (?,?,?,?,?)",
@@ -92,7 +101,6 @@ def init_user_db():
     conn.close()
 
 def hash_password(password: str, salt: str) -> str:
-    """Hash a password using SHA‑256 with a salt."""
     return hashlib.sha256((password + salt).encode()).hexdigest()
 
 def authenticate_user(username, password):
@@ -102,7 +110,6 @@ def authenticate_user(username, password):
         c.execute("SELECT password_hash, salt, role FROM users WHERE username=?", (username,))
         row = c.fetchone()
     except sqlite3.OperationalError:
-        # Fallback if salt column truly missing (should not happen after init)
         c.execute("ALTER TABLE users ADD COLUMN salt TEXT NOT NULL DEFAULT 'legacy_no_salt'")
         conn.commit()
         c.execute("SELECT password_hash, salt, role FROM users WHERE username=?", (username,))
@@ -110,11 +117,8 @@ def authenticate_user(username, password):
     conn.close()
     if row:
         db_hash, salt, role = row
-        # Handle legacy accounts without salt
         if salt == "legacy_no_salt":
-            # Old method: just SHA‑256 of password (no salt)
             if hashlib.sha256(password.encode()).hexdigest() == db_hash:
-                # Upgrade the account to a salted hash
                 new_salt = uuid.uuid4().hex
                 new_hash = hash_password(password, new_salt)
                 conn = sqlite3.connect(USER_DB)
@@ -124,7 +128,6 @@ def authenticate_user(username, password):
                 conn.close()
                 return True, role
         else:
-            # Salted comparison
             if hash_password(password, salt) == db_hash:
                 return True, role
     return False, None
@@ -159,7 +162,6 @@ def delete_user(username):
     conn.commit()
     conn.close()
 
-# Initialise database
 init_user_db()
 
 # ------------------------------------------------------------
@@ -171,12 +173,12 @@ if "authenticated" not in st.session_state:
     st.session_state.role = None
 
 # ------------------------------------------------------------
-# LOGIN / SIGN UP PAGE (clean, logo only)
+# LOGIN / SIGN UP PAGE (Black, logo only)
 # ------------------------------------------------------------
 def login_page():
     st.markdown('<div class="login-box">', unsafe_allow_html=True)
     st.markdown('<div class="logo-container">' + LOGO_SVG + '</div>', unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["🔑 Login", "📝 Sign Up"])
+    tab1, tab2 = st.tabs(["Login", "Sign Up"])
     with tab1:
         with st.form("login_form"):
             u = st.text_input("Username")
@@ -220,7 +222,7 @@ def logout():
     st.rerun()
 
 # ------------------------------------------------------------
-# DYNAMIC FOREX RATES
+# DYNAMIC FOREX RATES (unchanged)
 # ------------------------------------------------------------
 REGIONAL_FX_DEFAULTS = {
     "Kenya": {"currency":"KES","rate_to_usd":129.49,"symbol":"KSh","cost_multiplier":1.0,"risk_premium":0.02},
@@ -252,7 +254,7 @@ WIND_ZONES = {"Low (22 m/s)":22,"Moderate (28 m/s)":28,"High (35 m/s)":35}
 ROOM_COLORS = {"Bedroom":"#a78bfa","Living Room":"#34d399","Kitchen":"#fbbf24","Bathroom":"#60a5fa","Office":"#f87171","Dining":"#f472b6","Corridor":"#94a3b8","Garage":"#64748b"}
 
 # ------------------------------------------------------------
-# MEMORY & LOGGING
+# MEMORY & LOGGING (unchanged)
 # ------------------------------------------------------------
 MEMORY_FILE = Path("arc_studio_v21.json")
 
@@ -287,7 +289,7 @@ if "active_design" not in st.session_state:
     st.session_state.active_design = None
 
 # ------------------------------------------------------------
-# CORE GENERATION FUNCTIONS (unchanged logic)
+# CORE GENERATION FUNCTIONS (unchanged)
 # ------------------------------------------------------------
 def generate_intelligent_layout(rooms, nx, ny, span):
     grid = np.full((ny, nx), "Corridor", dtype=object)
@@ -446,7 +448,6 @@ def compute_detailed_forex_boq(design, rate_overrides=None):
     }
 
 def refresh_forex_rates():
-    """Simulate live rate update with random fluctuation."""
     base = {
         "Kenya": 129.49,
         "Uganda": 3665.20,
@@ -461,7 +462,7 @@ def refresh_forex_rates():
     log_event("Forex rates updated (simulated live change)")
 
 # ------------------------------------------------------------
-# 2D & 3D VISUALS
+# 2D & 3D VISUALS (unchanged)
 # ------------------------------------------------------------
 def draw_2d_blueprint(design, overlay_design=None):
     layout = design["layout"]["grid"]
@@ -526,7 +527,7 @@ def draw_3d_isometric_view(design, drift_factor=0):
     fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(111, projection='3d')
     ax.set_facecolor('none')
-    fig.patch.set_facecolor('#0a0f1c')
+    fig.patch.set_facecolor('#000000')
     ax.xaxis.pane.fill = False
     ax.yaxis.pane.fill = False
     ax.zaxis.pane.fill = False
@@ -572,20 +573,20 @@ def generate_ifc_json(design):
     return {"project_name":f"ARC_{design['id']}","elements":elements}
 
 # ------------------------------------------------------------
-# SIDEBAR
+# SIDEBAR – LOGO ONLY, no other images
 # ------------------------------------------------------------
 with st.sidebar:
     st.markdown(LOGO_SVG, unsafe_allow_html=True)
-    st.markdown(f"👤 **{st.session_state.username}** ({st.session_state.role})")
-    nav = st.pills("🌐 Workspace", ["Control Hub", "Synthesis Lab"], default="Control Hub")
+    st.markdown(f"**{st.session_state.username}** ({st.session_state.role})")
+    nav = st.pills("Workspace", ["Control Hub", "Synthesis Lab"], default="Control Hub")
     st.markdown("---")
 
     if st.session_state.role == "admin":
-        with st.expander("💱 Forex Rates (Admin)"):
+        with st.expander("Forex Rates (Admin)"):
             st.write("Current rates:")
             for country, fx in st.session_state.regional_fx.items():
                 st.write(f"{country}: {fx['symbol']} {fx['rate_to_usd']:,.2f}")
-            if st.button("🔄 Simulate Live Rate Change"):
+            if st.button("Simulate Live Rate Change"):
                 refresh_forex_rates()
                 st.success("Rates updated!")
                 st.rerun()
@@ -602,7 +603,7 @@ with st.sidebar:
                     st.session_state.memory["forex_rates"] = st.session_state.regional_fx
                     save_memory(st.session_state.memory)
 
-    with st.expander("⚙️ Configuration Matrix", expanded=True):
+    with st.expander("Configuration Matrix", expanded=True):
         country = st.selectbox("Region", list(st.session_state.regional_fx.keys()))
         domain = st.selectbox("Category", list(ARCH_DOMAINS.keys()))
         btype = st.selectbox("Typology", ARCH_DOMAINS[domain]["types"])
@@ -624,15 +625,15 @@ with st.sidebar:
         seismic = st.selectbox("Seismic Zone", list(SEISMIC_ZONES.keys()), index=1)
         wind = st.selectbox("Wind Zone", list(WIND_ZONES.keys()), index=1)
 
-    trigger = st.sidebar.button("⚡ Execute Generation", type="primary", use_container_width=True)
-    if st.button("🚪 Logout"):
+    trigger = st.sidebar.button("Execute Generation", type="primary", use_container_width=True)
+    if st.button("Logout"):
         logout()
 
 # ------------------------------------------------------------
-# MAIN WORKSPACE
+# MAIN WORKSPACE (unchanged functionality, cosmetic text)
 # ------------------------------------------------------------
 if nav == "Control Hub":
-    st.title("🌍 Regional Telemetry Dashboard")
+    st.title("Regional Telemetry Dashboard")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("KES", st.session_state.regional_fx["Kenya"]["rate_to_usd"])
     col2.metric("UGX", st.session_state.regional_fx["Uganda"]["rate_to_usd"])
@@ -644,10 +645,10 @@ if nav == "Control Hub":
     if st.session_state.memory["logs"]:
         st.subheader("Recent Events")
         for e in reversed(st.session_state.memory["logs"][-5:]):
-            st.caption(f"⏱️ {e['time'][-11:-3]} — {e['msg']} ({e.get('user','')})")
+            st.caption(f"{e['time'][-11:-3]} — {e['msg']} ({e.get('user','')})")
 
 elif nav == "Synthesis Lab":
-    st.title("📐 Generative Synthesis & Analysis")
+    st.title("Generative Synthesis & Analysis")
     if trigger:
         with st.spinner("Synthesizing..."):
             design = generate_building_model(
@@ -670,7 +671,7 @@ elif nav == "Synthesis Lab":
             col1.metric("Region", d["country"])
             col2.metric("GFA", f"{d['total_gfa']:,.0f} m²")
             col3.metric("Floors", d["floors"])
-            col4.metric("Doors/Windows", f"🚪{d['doors']} 🪟{d['windows']}")
+            col4.metric("Doors/Windows", f"{d['doors']}/{d['windows']}")
 
             tabs = st.tabs([
                 "2D Interactive", "3D Isometric", "Structural Passport", "Zoning",
@@ -688,8 +689,8 @@ elif nav == "Synthesis Lab":
                 st.json(d["analysis"])
             with tabs[3]:
                 zon = d["zoning"]
-                st.write(f"Coverage: {zon['coverage']} (max {ARCH_DOMAINS[d['domain']]['max_coverage']}) — {'✅' if zon['coverage_ok'] else '❌'}")
-                st.write(f"FAR: {zon['far']} (max {ARCH_DOMAINS[d['domain']]['max_far']}) — {'✅' if zon['far_ok'] else '❌'}")
+                st.write(f"Coverage: {zon['coverage']} (max {ARCH_DOMAINS[d['domain']]['max_coverage']}) — {'OK' if zon['coverage_ok'] else 'VIOLATION'}")
+                st.write(f"FAR: {zon['far']} (max {ARCH_DOMAINS[d['domain']]['max_far']}) — {'OK' if zon['far_ok'] else 'VIOLATION'}")
                 st.write(f"Overall: {zon['status']}")
             with tabs[4]:
                 boq = d["boq"]
@@ -702,7 +703,7 @@ elif nav == "Synthesis Lab":
                     st.metric("Total USD", f"${boq['total_usd']:,.2f}")
                     st.metric(f"Total {boq['local_currency']}", f"{boq['symbol']} {boq['total_local']:,.2f}")
             with tabs[5]:
-                st.subheader("📈 Forex Rate Forecast")
+                st.subheader("Forex Rate Forecast")
                 cur = st.selectbox("Currency", list(st.session_state.regional_fx.keys()), key="forex_cur")
                 horizon = st.radio("Horizon", ["short","medium","long"], horizontal=True, key="fx_hor")
                 steps_map = {"short":7,"medium":30,"long":90}
@@ -722,21 +723,21 @@ elif nav == "Synthesis Lab":
                 trend = "rising" if smoothed[-1] > np.mean(smoothed[-30:]) else "falling"
                 st.write(f"Trend: {trend}")
                 fig, ax = plt.subplots(figsize=(8,4))
-                ax.plot(hist_dates, history, label="Historical", color="#3b82f6")
-                ax.plot(hist_dates, smoothed, "--", color="orange", label="Smoothed")
-                ax.plot(forecast_dates, forecast, "o-", color="red", label="Forecast")
+                ax.plot(hist_dates, history, label="Historical", color="#888")
+                ax.plot(hist_dates, smoothed, "--", color="#aaa", label="Smoothed")
+                ax.plot(forecast_dates, forecast, "o-", color="#ddd", label="Forecast")
                 ax.legend()
-                ax.set_facecolor('#121a2b')
-                fig.patch.set_facecolor('#0a0f1c')
+                ax.set_facecolor('#111111')
+                fig.patch.set_facecolor('#000000')
                 ax.tick_params(colors='white')
                 st.pyplot(fig)
             with tabs[6]:
-                st.subheader("🌬️ Wind Drift Animation")
+                st.subheader("Wind Drift Animation")
                 drift_range = st.slider("Drift amplitude factor", 0.0, 1.0, 0.3, 0.05)
                 draw_3d_isometric_view(d, drift_factor=drift_range)
                 st.caption("Slide to simulate sway under wind load.")
             with tabs[7]:
-                st.subheader("💰 Cost Sensitivity Analysis")
+                st.subheader("Cost Sensitivity Analysis")
                 base_rates = {
                     "Reinforced Concrete (Eurocode 2)":350,
                     "Structural Steel Profile (Eurocode 3)":400,
@@ -751,7 +752,7 @@ elif nav == "Synthesis Lab":
                 with colB: st.metric(f"Updated {updated_boq['local_currency']}",
                                      f"{updated_boq['symbol']} {updated_boq['total_local']:,.2f}")
             with tabs[8]:
-                st.subheader("🆚 Design Comparison")
+                st.subheader("Design Comparison")
                 my_designs_list = [d for d in st.session_state.memory["designs"] if d.get("username")==st.session_state.username]
                 if len(my_designs_list) < 2:
                     st.warning("Save at least two designs to compare.")
@@ -775,7 +776,7 @@ elif nav == "Synthesis Lab":
                             st.metric("B Cost USD", d2["boq"]["total_usd"])
                             st.metric("B Floors", d2["floors"])
             with tabs[9]:
-                st.subheader("📦 Export to IFC/Revit JSON")
+                st.subheader("Export to IFC/Revit JSON")
                 ifc_json = generate_ifc_json(d)
                 st.download_button(
                     "Download IFC-like JSON",
