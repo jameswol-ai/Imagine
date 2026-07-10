@@ -1,6 +1,6 @@
 # =========================================================
 # IMAGINE – Architectural Intellect & East African Forex Engine
-# v21.7 – Dark Minimalist UI, Simplified Login, Monochrome Logo
+# v21.6 – Polished UI, Database Migration, Clean Login
 # =========================================================
 
 import streamlit as st
@@ -15,91 +15,45 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # ------------------------------------------------------------
-# CUSTOM THEME – Dark Grey, Minimalist
+# CUSTOM THEME
 # ------------------------------------------------------------
 st.set_page_config(page_title="Imagine", page_icon="🏛️", layout="wide")
 st.markdown("""
 <style>
-    /* Global dark grey background */
-    .stApp {
-        background: #1a1a1a;
-        color: #e0e0e0;
-    }
-    .stSidebar {
-        background: #222222;
-        border-right: 1px solid #444;
-    }
-    h1, h2, h3, h4, h5, h6 {
-        color: #cccccc !important;
-        font-weight: 600;
-    }
-    .stMetric {
-        background: rgba(80,80,80,0.2);
-        border-radius: 8px;
-        padding: 10px;
-        border: 1px solid #555;
-        color: #e0e0e0;
-    }
-    .stButton button {
-        background: #333;
-        color: #ddd;
-        font-weight: bold;
-        border-radius: 6px;
-        border: 1px solid #555;
-    }
-    .stButton button:hover {
-        background: #444;
-        color: white;
-        border-color: #777;
-    }
-    /* Tabs – no highlight, simple underline */
-    .stTabs [data-baseweb="tab"] {
-        background: transparent;
-        border-radius: 0;
-        border-bottom: 2px solid transparent;
-        color: #aaa;
-        padding: 0.5rem 1rem;
-    }
-    .stTabs [aria-selected="true"] {
-        background: transparent !important;
-        border-bottom: 2px solid #aaa;
-        color: #e0e0e0 !important;
-    }
-    /* Login box – simple dark container */
+    .stApp { background: linear-gradient(135deg, #0a0f1c 0%, #121a2b 100%); color: #e2e8f0; }
+    .stSidebar { background: #121a2b; border-right: 1px solid #3b82f6; }
+    h1,h2,h3,h4,h5,h6 { color: #60a5fa !important; font-weight: 600; }
+    .stMetric { background: rgba(59,130,246,0.1); border-radius:12px; padding:10px; border:1px solid #3b82f6; }
+    .stButton button { background:#3b82f6; color:white; font-weight:bold; border-radius:8px; border:none; }
+    .stButton button:hover { background:#2563eb; color:white; }
+    .stTabs [data-baseweb="tab"] { background:#121a2b; border-radius:8px 8px 0 0; color:#94a3b8; }
+    .stTabs [aria-selected="true"] { background:#3b82f6 !important; color:white !important; }
     .login-box {
-        background: #1e1e1e;
+        background: rgba(18,26,43,0.95);
         padding: 2rem;
-        border-radius: 12px;
-        border: 1px solid #444;
-        box-shadow: none;
-        max-width: 400px;
-        margin: 4rem auto;
+        border-radius: 20px;
+        box-shadow: 0 0 20px rgba(59,130,246,0.3);
+        border: 1px solid #3b82f6;
     }
-    .logo-container {
-        text-align: center;
-        margin-bottom: 1.5rem;
-    }
-    /* Remove any glowing effects */
-    .stApp, .stSidebar {
-        box-shadow: none;
-    }
+    .logo-container { text-align: center; margin-bottom: 1rem; }
 </style>""", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# LOGO – Simple geometric mark + “Imagine” in monochrome
+# LOGO – "Imagine" (I capital, rest lowercase), no extra graphic
 # ------------------------------------------------------------
 LOGO_SVG = """
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 80" width="220" height="68">
-  <!-- Architectural compass diamond -->
-  <g transform="translate(130,25)" stroke="#aaa" stroke-width="2" fill="none">
-    <polygon points="0,-18 14,0 0,18 -14,0" />
-    <circle cx="0" cy="0" r="6" fill="#aaa" />
-    <line x1="0" y1="-18" x2="0" y2="18" />
-    <line x1="-14" y1="0" x2="14" y2="0" />
-  </g>
-  <text x="130" y="65" text-anchor="middle"
-        font-family="'Segoe UI', Arial, sans-serif" font-weight="500" font-size="30"
-        fill="#cccccc" letter-spacing="4">Imagine</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80" width="240" height="64">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <text x="150" y="55" dominant-baseline="middle" text-anchor="middle"
+        font-family="'Segoe UI', Arial, sans-serif" font-weight="700" font-size="38"
+        fill="url(#grad)" letter-spacing="2">Imagine</text>
+  <!-- Subtle underline -->
+  <line x1="80" y1="68" x2="220" y2="68" stroke="#3b82f6" stroke-width="1.5" opacity="0.7"/>
 </svg>
 """
 
@@ -111,18 +65,25 @@ USER_DB = Path("arc_users.db")
 def init_user_db():
     conn = sqlite3.connect(USER_DB)
     c = conn.cursor()
+    # Create table if not exists (original columns)
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (username TEXT PRIMARY KEY,
                   password_hash TEXT NOT NULL,
                   role TEXT DEFAULT 'user',
                   email TEXT DEFAULT '')''')
+    # Ensure the 'salt' column exists (migration from older versions)
     try:
         c.execute("SELECT salt FROM users LIMIT 1")
     except sqlite3.OperationalError:
+        # Column doesn't exist – add it and set default for existing accounts
         c.execute("ALTER TABLE users ADD COLUMN salt TEXT NOT NULL DEFAULT 'legacy_no_salt'")
+        # For the existing admin user (if present), the salt remains 'legacy_no_salt'
         conn.commit()
+
+    # Create default admin if no users exist
     c.execute("SELECT COUNT(*) FROM users")
     if c.fetchone()[0] == 0:
+        # New admin with proper salt
         salt = uuid.uuid4().hex
         admin_hash = hash_password("admin123", salt)
         c.execute("INSERT INTO users (username, password_hash, salt, role, email) VALUES (?,?,?,?,?)",
@@ -131,6 +92,7 @@ def init_user_db():
     conn.close()
 
 def hash_password(password: str, salt: str) -> str:
+    """Hash a password using SHA‑256 with a salt."""
     return hashlib.sha256((password + salt).encode()).hexdigest()
 
 def authenticate_user(username, password):
@@ -140,6 +102,7 @@ def authenticate_user(username, password):
         c.execute("SELECT password_hash, salt, role FROM users WHERE username=?", (username,))
         row = c.fetchone()
     except sqlite3.OperationalError:
+        # Fallback if salt column truly missing (should not happen after init)
         c.execute("ALTER TABLE users ADD COLUMN salt TEXT NOT NULL DEFAULT 'legacy_no_salt'")
         conn.commit()
         c.execute("SELECT password_hash, salt, role FROM users WHERE username=?", (username,))
@@ -147,8 +110,11 @@ def authenticate_user(username, password):
     conn.close()
     if row:
         db_hash, salt, role = row
+        # Handle legacy accounts without salt
         if salt == "legacy_no_salt":
+            # Old method: just SHA‑256 of password (no salt)
             if hashlib.sha256(password.encode()).hexdigest() == db_hash:
+                # Upgrade the account to a salted hash
                 new_salt = uuid.uuid4().hex
                 new_hash = hash_password(password, new_salt)
                 conn = sqlite3.connect(USER_DB)
@@ -158,6 +124,7 @@ def authenticate_user(username, password):
                 conn.close()
                 return True, role
         else:
+            # Salted comparison
             if hash_password(password, salt) == db_hash:
                 return True, role
     return False, None
@@ -192,6 +159,7 @@ def delete_user(username):
     conn.commit()
     conn.close()
 
+# Initialise database
 init_user_db()
 
 # ------------------------------------------------------------
@@ -203,12 +171,12 @@ if "authenticated" not in st.session_state:
     st.session_state.role = None
 
 # ------------------------------------------------------------
-# LOGIN / SIGN UP PAGE – Minimalist, No Highlights
+# LOGIN / SIGN UP PAGE (clean, logo only)
 # ------------------------------------------------------------
 def login_page():
     st.markdown('<div class="login-box">', unsafe_allow_html=True)
     st.markdown('<div class="logo-container">' + LOGO_SVG + '</div>', unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["Login", "Sign Up"])
+    tab1, tab2 = st.tabs(["🔑 Login", "📝 Sign Up"])
     with tab1:
         with st.form("login_form"):
             u = st.text_input("Username")
@@ -319,7 +287,7 @@ if "active_design" not in st.session_state:
     st.session_state.active_design = None
 
 # ------------------------------------------------------------
-# CORE GENERATION FUNCTIONS
+# CORE GENERATION FUNCTIONS (unchanged logic)
 # ------------------------------------------------------------
 def generate_intelligent_layout(rooms, nx, ny, span):
     grid = np.full((ny, nx), "Corridor", dtype=object)
@@ -478,6 +446,7 @@ def compute_detailed_forex_boq(design, rate_overrides=None):
     }
 
 def refresh_forex_rates():
+    """Simulate live rate update with random fluctuation."""
     base = {
         "Kenya": 129.49,
         "Uganda": 3665.20,
@@ -557,7 +526,7 @@ def draw_3d_isometric_view(design, drift_factor=0):
     fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(111, projection='3d')
     ax.set_facecolor('none')
-    fig.patch.set_facecolor('#1a1a1a')
+    fig.patch.set_facecolor('#0a0f1c')
     ax.xaxis.pane.fill = False
     ax.yaxis.pane.fill = False
     ax.zaxis.pane.fill = False
@@ -603,7 +572,7 @@ def generate_ifc_json(design):
     return {"project_name":f"ARC_{design['id']}","elements":elements}
 
 # ------------------------------------------------------------
-# SIDEBAR – Only "Imagine" logo, no other graphics
+# SIDEBAR
 # ------------------------------------------------------------
 with st.sidebar:
     st.markdown(LOGO_SVG, unsafe_allow_html=True)
@@ -757,8 +726,8 @@ elif nav == "Synthesis Lab":
                 ax.plot(hist_dates, smoothed, "--", color="orange", label="Smoothed")
                 ax.plot(forecast_dates, forecast, "o-", color="red", label="Forecast")
                 ax.legend()
-                ax.set_facecolor('#1e1e1e')
-                fig.patch.set_facecolor('#1a1a1a')
+                ax.set_facecolor('#121a2b')
+                fig.patch.set_facecolor('#0a0f1c')
                 ax.tick_params(colors='white')
                 st.pyplot(fig)
             with tabs[6]:
