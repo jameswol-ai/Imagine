@@ -1,7 +1,6 @@
 # =========================================================
 # IMAGINE – Architectural Intellect & East African Forex Engine
-# v21.5 – Redesigned UI, Login/Signup, Live Forex Rates
-# Single‑file Streamlit App
+# v21.6 – Polished UI, Database Migration, Clean Login
 # =========================================================
 
 import streamlit as st
@@ -12,16 +11,15 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 from io import BytesIO
-from mpl_toolkits.mplot3d import Axes3D  # needed for 3d projection
+from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # ------------------------------------------------------------
-# CUSTOM THEME (Refined Architectural Palette)
+# CUSTOM THEME
 # ------------------------------------------------------------
 st.set_page_config(page_title="Imagine", page_icon="🏛️", layout="wide")
 st.markdown("""
 <style>
-    /* Overall dark theme with blueprint feel */
     .stApp { background: linear-gradient(135deg, #0a0f1c 0%, #121a2b 100%); color: #e2e8f0; }
     .stSidebar { background: #121a2b; border-right: 1px solid #3b82f6; }
     h1,h2,h3,h4,h5,h6 { color: #60a5fa !important; font-weight: 600; }
@@ -30,71 +28,105 @@ st.markdown("""
     .stButton button:hover { background:#2563eb; color:white; }
     .stTabs [data-baseweb="tab"] { background:#121a2b; border-radius:8px 8px 0 0; color:#94a3b8; }
     .stTabs [aria-selected="true"] { background:#3b82f6 !important; color:white !important; }
-    /* Login container */
-    div[data-testid="stVerticalBlock"] > div[style]:first-child {
-        background: rgba(18,26,43,0.95); padding: 2rem; border-radius: 20px;
+    .login-box {
+        background: rgba(18,26,43,0.95);
+        padding: 2rem;
+        border-radius: 20px;
         box-shadow: 0 0 20px rgba(59,130,246,0.3);
+        border: 1px solid #3b82f6;
     }
-    /* Logo centering */
     .logo-container { text-align: center; margin-bottom: 1rem; }
 </style>""", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
-# EMBEDDED SVG LOGO FOR "IMAGINE"
+# LOGO – "Imagine" (I capital, rest lowercase), no extra graphic
 # ------------------------------------------------------------
 LOGO_SVG = """
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="300" height="75">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80" width="240" height="64">
   <defs>
     <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle"
-        font-family="Arial, sans-serif" font-weight="900" font-size="45"
-        fill="url(#grad)" letter-spacing="8">IMAGINE</text>
-  <path d="M20 30 L40 10 L60 30" stroke="#3b82f6" stroke-width="3" fill="none"/>
-  <circle cx="40" cy="10" r="4" fill="#8b5cf6"/>
+  <text x="150" y="55" dominant-baseline="middle" text-anchor="middle"
+        font-family="'Segoe UI', Arial, sans-serif" font-weight="700" font-size="38"
+        fill="url(#grad)" letter-spacing="2">Imagine</text>
+  <!-- Subtle underline -->
+  <line x1="80" y1="68" x2="220" y2="68" stroke="#3b82f6" stroke-width="1.5" opacity="0.7"/>
 </svg>
 """
 
 # ------------------------------------------------------------
-# DATABASE & AUTH (Improved with password hashing using sha256 with salt)
+# DATABASE MIGRATION & AUTH
 # ------------------------------------------------------------
 USER_DB = Path("arc_users.db")
 
 def init_user_db():
     conn = sqlite3.connect(USER_DB)
     c = conn.cursor()
+    # Create table if not exists (original columns)
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (username TEXT PRIMARY KEY,
                   password_hash TEXT NOT NULL,
-                  salt TEXT NOT NULL,
                   role TEXT DEFAULT 'user',
                   email TEXT DEFAULT '')''')
+    # Ensure the 'salt' column exists (migration from older versions)
+    try:
+        c.execute("SELECT salt FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        # Column doesn't exist – add it and set default for existing accounts
+        c.execute("ALTER TABLE users ADD COLUMN salt TEXT NOT NULL DEFAULT 'legacy_no_salt'")
+        # For the existing admin user (if present), the salt remains 'legacy_no_salt'
+        conn.commit()
+
+    # Create default admin if no users exist
     c.execute("SELECT COUNT(*) FROM users")
     if c.fetchone()[0] == 0:
-        # Create default admin with salt
+        # New admin with proper salt
         salt = uuid.uuid4().hex
         admin_hash = hash_password("admin123", salt)
-        c.execute("INSERT INTO users VALUES (?,?,?,'admin','admin@arc.studio')",
-                  ("admin", admin_hash, salt))
+        c.execute("INSERT INTO users (username, password_hash, salt, role, email) VALUES (?,?,?,?,?)",
+                  ("admin", admin_hash, salt, "admin", "admin@arc.studio"))
     conn.commit()
     conn.close()
 
 def hash_password(password: str, salt: str) -> str:
+    """Hash a password using SHA‑256 with a salt."""
     return hashlib.sha256((password + salt).encode()).hexdigest()
 
 def authenticate_user(username, password):
     conn = sqlite3.connect(USER_DB)
     c = conn.cursor()
-    c.execute("SELECT password_hash, salt, role FROM users WHERE username=?", (username,))
-    row = c.fetchone()
+    try:
+        c.execute("SELECT password_hash, salt, role FROM users WHERE username=?", (username,))
+        row = c.fetchone()
+    except sqlite3.OperationalError:
+        # Fallback if salt column truly missing (should not happen after init)
+        c.execute("ALTER TABLE users ADD COLUMN salt TEXT NOT NULL DEFAULT 'legacy_no_salt'")
+        conn.commit()
+        c.execute("SELECT password_hash, salt, role FROM users WHERE username=?", (username,))
+        row = c.fetchone()
     conn.close()
     if row:
         db_hash, salt, role = row
-        if hash_password(password, salt) == db_hash:
-            return True, role
+        # Handle legacy accounts without salt
+        if salt == "legacy_no_salt":
+            # Old method: just SHA‑256 of password (no salt)
+            if hashlib.sha256(password.encode()).hexdigest() == db_hash:
+                # Upgrade the account to a salted hash
+                new_salt = uuid.uuid4().hex
+                new_hash = hash_password(password, new_salt)
+                conn = sqlite3.connect(USER_DB)
+                conn.execute("UPDATE users SET password_hash=?, salt=? WHERE username=?",
+                             (new_hash, new_salt, username))
+                conn.commit()
+                conn.close()
+                return True, role
+        else:
+            # Salted comparison
+            if hash_password(password, salt) == db_hash:
+                return True, role
     return False, None
 
 def register_user(username, password, email="", role="user"):
@@ -103,7 +135,7 @@ def register_user(username, password, email="", role="user"):
     try:
         salt = uuid.uuid4().hex
         pwd_hash = hash_password(password, salt)
-        c.execute("INSERT INTO users VALUES (?,?,?,?,?)",
+        c.execute("INSERT INTO users (username, password_hash, salt, role, email) VALUES (?,?,?,?,?)",
                   (username, pwd_hash, salt, role, email))
         conn.commit()
         return True, f"User '{username}' created."
@@ -127,10 +159,11 @@ def delete_user(username):
     conn.commit()
     conn.close()
 
+# Initialise database
 init_user_db()
 
 # ------------------------------------------------------------
-# SESSION STATE MANAGEMENT
+# SESSION STATE
 # ------------------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -138,40 +171,40 @@ if "authenticated" not in st.session_state:
     st.session_state.role = None
 
 # ------------------------------------------------------------
-# LOGIN / SIGN UP PAGE (Tabs)
+# LOGIN / SIGN UP PAGE (clean, logo only)
 # ------------------------------------------------------------
 def login_page():
+    st.markdown('<div class="login-box">', unsafe_allow_html=True)
     st.markdown('<div class="logo-container">' + LOGO_SVG + '</div>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        tab1, tab2 = st.tabs(["🔑 Login", "📝 Sign Up"])
-        with tab1:
-            with st.form("login_form"):
-                u = st.text_input("Username")
-                p = st.text_input("Password", type="password")
-                if st.form_submit_button("Login"):
-                    ok, role = authenticate_user(u, p)
+    tab1, tab2 = st.tabs(["🔑 Login", "📝 Sign Up"])
+    with tab1:
+        with st.form("login_form"):
+            u = st.text_input("Username")
+            p = st.text_input("Password", type="password")
+            if st.form_submit_button("Login"):
+                ok, role = authenticate_user(u, p)
+                if ok:
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.session_state.role = role
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
+    with tab2:
+        with st.form("register_form"):
+            new_u = st.text_input("Choose Username")
+            new_p = st.text_input("Create Password", type="password")
+            new_e = st.text_input("Email (optional)")
+            if st.form_submit_button("Sign Up"):
+                if not new_u or not new_p:
+                    st.error("Username and password required.")
+                else:
+                    ok, msg = register_user(new_u, new_p, new_e)
                     if ok:
-                        st.session_state.authenticated = True
-                        st.session_state.username = u
-                        st.session_state.role = role
-                        st.rerun()
+                        st.success(msg + " You can now login.")
                     else:
-                        st.error("Invalid credentials")
-        with tab2:
-            with st.form("register_form"):
-                new_u = st.text_input("Choose Username")
-                new_p = st.text_input("Create Password", type="password")
-                new_e = st.text_input("Email (optional)")
-                if st.form_submit_button("Sign Up"):
-                    if not new_u or not new_p:
-                        st.error("Username and password required.")
-                    else:
-                        ok, msg = register_user(new_u, new_p, new_e)
-                        if ok:
-                            st.success(msg + " You can now login.")
-                        else:
-                            st.error(msg)
+                        st.error(msg)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if not st.session_state.authenticated:
     login_page()
@@ -187,17 +220,17 @@ def logout():
     st.rerun()
 
 # ------------------------------------------------------------
-# DATA CONFIGURATIONS (with dynamic forex update capability)
+# DYNAMIC FOREX RATES
 # ------------------------------------------------------------
-REGIONAL_FX = {
+REGIONAL_FX_DEFAULTS = {
     "Kenya": {"currency":"KES","rate_to_usd":129.49,"symbol":"KSh","cost_multiplier":1.0,"risk_premium":0.02},
     "Uganda": {"currency":"UGX","rate_to_usd":3665.20,"symbol":"USh","cost_multiplier":0.95,"risk_premium":0.03},
     "Tanzania": {"currency":"TZS","rate_to_usd":2625.00,"symbol":"TSh","cost_multiplier":0.98,"risk_premium":0.025},
     "South Sudan": {"currency":"SSP","rate_to_usd":4626.40,"symbol":"SSP","cost_multiplier":1.35,"risk_premium":0.08}
 }
-# Store in memory so it can be updated dynamically
+
 if "regional_fx" not in st.session_state:
-    st.session_state.regional_fx = REGIONAL_FX.copy()
+    st.session_state.regional_fx = REGIONAL_FX_DEFAULTS.copy()
 
 ARCH_DOMAINS = {
     "Residential": {"types":["Luxury Villa","Modern Apartment","Townhouse Studio"],"max_coverage":0.5,"max_far":2.5},
@@ -222,15 +255,18 @@ ROOM_COLORS = {"Bedroom":"#a78bfa","Living Room":"#34d399","Kitchen":"#fbbf24","
 # MEMORY & LOGGING
 # ------------------------------------------------------------
 MEMORY_FILE = Path("arc_studio_v21.json")
+
 def load_memory():
     if MEMORY_FILE.exists():
         try:
             return json.loads(MEMORY_FILE.read_text(encoding="utf-8"))
         except:
             pass
-    return {"designs":[], "logs":[], "forex_rates": REGIONAL_FX.copy()}
+    return {"designs":[], "logs":[], "forex_rates": REGIONAL_FX_DEFAULTS.copy()}
+
 def save_memory(mem):
     MEMORY_FILE.write_text(json.dumps(mem, indent=2), encoding="utf-8")
+
 def log_event(msg):
     mem = st.session_state.memory
     mem["logs"].append({
@@ -242,7 +278,6 @@ def log_event(msg):
 
 if "memory" not in st.session_state:
     st.session_state.memory = load_memory()
-    # Ensure forex rates in memory match session
     if "forex_rates" in st.session_state.memory:
         st.session_state.regional_fx = st.session_state.memory["forex_rates"]
     else:
@@ -252,7 +287,7 @@ if "active_design" not in st.session_state:
     st.session_state.active_design = None
 
 # ------------------------------------------------------------
-# CORE FUNCTIONS (same as before, but using st.session_state.regional_fx)
+# CORE GENERATION FUNCTIONS (unchanged logic)
 # ------------------------------------------------------------
 def generate_intelligent_layout(rooms, nx, ny, span):
     grid = np.full((ny, nx), "Corridor", dtype=object)
@@ -381,7 +416,7 @@ def verify_zoning_laws(design):
 
 def compute_detailed_forex_boq(design, rate_overrides=None):
     country = design["country"]
-    fx = st.session_state.regional_fx[country]  # use dynamic rates
+    fx = st.session_state.regional_fx[country]
     mult = fx["cost_multiplier"]
     risk = fx["risk_premium"]
     base_rates = {
@@ -410,11 +445,8 @@ def compute_detailed_forex_boq(design, rate_overrides=None):
         "rate_used": fx["rate_to_usd"]
     }
 
-# ------------------------------------------------------------
-# FOREX UPDATE (Admin function)
-# ------------------------------------------------------------
 def refresh_forex_rates():
-    """Simulate fetching live rates with small random variation."""
+    """Simulate live rate update with random fluctuation."""
     base = {
         "Kenya": 129.49,
         "Uganda": 3665.20,
@@ -429,7 +461,7 @@ def refresh_forex_rates():
     log_event("Forex rates updated (simulated live change)")
 
 # ------------------------------------------------------------
-# 2D & 3D VISUALS (same as original)
+# 2D & 3D VISUALS
 # ------------------------------------------------------------
 def draw_2d_blueprint(design, overlay_design=None):
     layout = design["layout"]["grid"]
@@ -519,6 +551,26 @@ def draw_3d_isometric_view(design, drift_factor=0):
     ax.axis('off')
     st.pyplot(fig)
 
+def generate_ifc_json(design):
+    grid = design["layout"]["grid"]
+    nx = design["layout"]["nx"]
+    ny = design["layout"]["ny"]
+    span = design["layout"]["span"]
+    floors = design["floors"]
+    elements = []
+    for f in range(floors):
+        for i in range(ny):
+            for j in range(nx):
+                room = grid[i][j]
+                for (x1,y1),(x2,y2) in [((j,i),(j+1,i)),((j+1,i),(j+1,i+1)),((j,i+1),(j+1,i+1)),((j,i),(j,i+1))]:
+                    wall = {"type":"IfcWall","name":f"Wall_F{f}_R{i}{j}",
+                            "coordinates":{"start":{"x":x1*span,"y":y1*span,"z":f*3},"end":{"x":x2*span,"y":y2*span,"z":f*3}},"height":3}
+                    elements.append(wall)
+                slab = {"type":"IfcSlab","name":f"Slab_F{f}_R{i}{j}",
+                        "coordinates":{"x":j*span,"y":i*span,"z":f*3},"width":span,"depth":span}
+                elements.append(slab)
+    return {"project_name":f"ARC_{design['id']}","elements":elements}
+
 # ------------------------------------------------------------
 # SIDEBAR
 # ------------------------------------------------------------
@@ -528,25 +580,28 @@ with st.sidebar:
     nav = st.pills("🌐 Workspace", ["Control Hub", "Synthesis Lab"], default="Control Hub")
     st.markdown("---")
 
-    # Forex Rate Update (admin)
     if st.session_state.role == "admin":
         with st.expander("💱 Forex Rates (Admin)"):
             st.write("Current rates:")
             for country, fx in st.session_state.regional_fx.items():
                 st.write(f"{country}: {fx['symbol']} {fx['rate_to_usd']:,.2f}")
-            if st.button("🔄 Refresh Rates (simulate live)"):
+            if st.button("🔄 Simulate Live Rate Change"):
                 refresh_forex_rates()
                 st.success("Rates updated!")
                 st.rerun()
-            st.caption("Manual adjustment:")
             for country in st.session_state.regional_fx.keys():
-                new_val = st.number_input(f"{country} rate", value=st.session_state.regional_fx[country]["rate_to_usd"], step=0.01, format="%.2f")
+                new_val = st.number_input(
+                    f"{country} rate",
+                    value=st.session_state.regional_fx[country]["rate_to_usd"],
+                    step=0.01,
+                    format="%.2f",
+                    key=f"fx_{country}"
+                )
                 if new_val != st.session_state.regional_fx[country]["rate_to_usd"]:
                     st.session_state.regional_fx[country]["rate_to_usd"] = new_val
                     st.session_state.memory["forex_rates"] = st.session_state.regional_fx
                     save_memory(st.session_state.memory)
 
-    # Configuration Matrix
     with st.expander("⚙️ Configuration Matrix", expanded=True):
         country = st.selectbox("Region", list(st.session_state.regional_fx.keys()))
         domain = st.selectbox("Category", list(ARCH_DOMAINS.keys()))
@@ -568,12 +623,13 @@ with st.sidebar:
         ]) if "Steel" in material else None
         seismic = st.selectbox("Seismic Zone", list(SEISMIC_ZONES.keys()), index=1)
         wind = st.selectbox("Wind Zone", list(WIND_ZONES.keys()), index=1)
+
     trigger = st.sidebar.button("⚡ Execute Generation", type="primary", use_container_width=True)
     if st.button("🚪 Logout"):
         logout()
 
 # ------------------------------------------------------------
-# MAIN INTERFACE
+# MAIN WORKSPACE
 # ------------------------------------------------------------
 if nav == "Control Hub":
     st.title("🌍 Regional Telemetry Dashboard")
@@ -651,7 +707,6 @@ elif nav == "Synthesis Lab":
                 horizon = st.radio("Horizon", ["short","medium","long"], horizontal=True, key="fx_hor")
                 steps_map = {"short":7,"medium":30,"long":90}
                 steps = st.slider("Days", 1, 90, steps_map[horizon])
-                # Simple forecast using exponential smoothing on dummy data
                 base_rate = st.session_state.regional_fx[cur]["rate_to_usd"]
                 np.random.seed(42)
                 history = base_rate + np.random.normal(0, 0.5, 90).cumsum()
@@ -664,7 +719,8 @@ elif nav == "Synthesis Lab":
                 hist_dates = [datetime.now() - timedelta(days=i) for i in range(90,0,-1)]
                 st.metric("Current", f"{st.session_state.regional_fx[cur]['symbol']} {base_rate}")
                 st.metric(f"{steps}-day avg", f"{st.session_state.regional_fx[cur]['symbol']} {np.mean(forecast):.2f}")
-                st.write(f"Trend: {'rising' if smoothed[-1] > np.mean(smoothed[-30:]) else 'falling'}")
+                trend = "rising" if smoothed[-1] > np.mean(smoothed[-30:]) else "falling"
+                st.write(f"Trend: {trend}")
                 fig, ax = plt.subplots(figsize=(8,4))
                 ax.plot(hist_dates, history, label="Historical", color="#3b82f6")
                 ax.plot(hist_dates, smoothed, "--", color="orange", label="Smoothed")
@@ -710,15 +766,23 @@ elif nav == "Synthesis Lab":
                         st.write("### Overlay Blueprint")
                         st.image(draw_2d_blueprint(d1, overlay_design=d2), use_container_width=True)
                         col1, col2 = st.columns(2)
-                        with col1: st.metric("A GFA", d1["total_gfa"]); st.metric("A Cost USD", d1["boq"]["total_usd"]); st.metric("A Floors", d1["floors"])
-                        with col2: st.metric("B GFA", d2["total_gfa"]); st.metric("B Cost USD", d2["boq"]["total_usd"]); st.metric("B Floors", d2["floors"])
+                        with col1:
+                            st.metric("A GFA", d1["total_gfa"])
+                            st.metric("A Cost USD", d1["boq"]["total_usd"])
+                            st.metric("A Floors", d1["floors"])
+                        with col2:
+                            st.metric("B GFA", d2["total_gfa"])
+                            st.metric("B Cost USD", d2["boq"]["total_usd"])
+                            st.metric("B Floors", d2["floors"])
             with tabs[9]:
                 st.subheader("📦 Export to IFC/Revit JSON")
                 ifc_json = generate_ifc_json(d)
-                st.download_button("Download IFC-like JSON",
-                                   data=json.dumps(ifc_json, indent=2),
-                                   file_name=f"ARC_{d['id']}_ifc.json",
-                                   mime="application/json")
+                st.download_button(
+                    "Download IFC-like JSON",
+                    data=json.dumps(ifc_json, indent=2),
+                    file_name=f"ARC_{d['id']}_ifc.json",
+                    mime="application/json"
+                )
                 st.json(ifc_json, expanded=False)
     else:
         st.info("Configure parameters and press Execute Generation.")
